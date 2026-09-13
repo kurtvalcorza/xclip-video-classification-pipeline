@@ -1,0 +1,55 @@
+{
+  "format": "dimer_hf_snapshot",
+  "formatVersion": 1,
+  "modelKey": "xclip-base-patch32",
+  "modelId": "microsoft/xclip-base-patch32",
+  "revision": "a2e27a78a2b5d802e894b8a1ef14f3a8ce490963",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 2728,
+      "sha256": "5b4c29da30c14c41dadc2320cedb68d7bc30147aa171c04ce8d3d7b8acf8da91"
+    },
+    {
+      "path": "config.json",
+      "bytes": 4718,
+      "sha256": "13bb919d1ef16f3b80b03cdf5c575d688dfafd21d12566849cc557b00e058ce3"
+    },
+    {
+      "path": "merges.txt",
+      "bytes": 524657,
+      "sha256": "f526393189112391ce6f9795d4695f704121ce452c3aad1f5335cc41337eba85"
+    },
+    {
+      "path": "model.safetensors",
+      "bytes": 786414772,
+      "sha256": "abf286e8cdd0612761c3e42d3a55eca998382dfa67a04a0f3fdcdfa4f150cdbb"
+    },
+    {
+      "path": "preprocessor_config.json",
+      "bytes": 309,
+      "sha256": "c14b2b5c8f26a754df62235ba79d1ca63cfdd9b3de76ee688e4a30ea1e5c6986"
+    },
+    {
+      "path": "special_tokens_map.json",
+      "bytes": 472,
+      "sha256": "c4864a9376a8401918425bed71fc14fc0e81f9b59ec45c1cf96cccb2df508eac"
+    },
+    {
+      "path": "tokenizer.json",
+      "bytes": 2224041,
+      "sha256": "a75dc79c6ec004a7e2d346c20e0af8d29aa2b251ea356964718aef8b8f052e80"
+    },
+    {
+      "path": "tokenizer_config.json",
+      "bytes": 965,
+      "sha256": "7e28810d55aafb02f6b216f05fa1208a4aac62abf794796288a70314eed5ddf3"
+    },
+    {
+      "path": "vocab.json",
+      "bytes": 862328,
+      "sha256": "5047b556ce86ccaf6aa22b3ffccfc52d391ea4accdab9c2f2407da5b742d4363"
+    }
+  ],
+  "totalBytes": 790034990
+}

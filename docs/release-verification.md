@@ -116,7 +116,7 @@ they are measurements for the stated runtime, not general estimates.
 
 | Date (UTC) | Commit / notebook blob | Executor | Path exercised | Wall | Outcome |
 |---|---|---|---|---|---|
-__LOCAL_ROW__
+| 2026-09-14 | notebook blob `048fd13d3b40` (commit `f99a34a`, generated at `0bfc37f`; `NOTEBOOK_SOURCE.repository_revision` = `0bfc37f…`) | Local Windows-venv harness (`run_nb_local.py`: nbclient 0.11.0, fresh `python3` kernel, `CUDA_VISIBLE_DEVICES=-1`, `DIMER_NOTEBOOK_CI_PREINSTALLED=1`), Python 3.12.10, torch 2.14.0+cu130, transformers 4.57.6 | Default synthetic path, all 8 code cells: pinned install skipped (pre-installed), `stage_missing_files` fetched all 9 manifest entries (786 MB) from the Hub cache at the pinned revision into the scratch `weights/`, `verify_snapshot` PASS (9 files), no further download in the log, five `classify` calls (0.34 s first, 0.12–0.13 s after) → `a ball standing still` first for every clip at 0.69 / 0.51 / 0.43 / 0.46 / 0.57 with the correct name at rank 3 / 3 / 4 / 4 / 1, `evaluation_report` `sample-sanity` (`top1_accuracy` 0.2, `chance` 0.2 — identical to the smoke run, the recorded chance-level finding reproduced), clip digests `44fe5e96…` / `1d926d10…` / `409311d3…` / `923d4041…` / `6ea09644…`, 5 outputs written | 81.8 s | PASS — pre-flight only; not promotion evidence |
 
 ### Manual clean-runtime evidence
 

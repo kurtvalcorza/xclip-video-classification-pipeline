@@ -2,6 +2,7 @@
 license: mit
 model_card_spec: "1.1"
 pipeline_tag: video-classification
+task: "Others - Video Classification"
 base_model: microsoft/xclip-base-patch32
 date_published: "2022-08-25"
 date_published_source: "Hugging Face Hub repository creation date of the exact hosted checkpoint (`createdAt` 2022-08-25T13:06:15Z, https://huggingface.co/api/models/microsoft/xclip-base-patch32 — the Transformers-format conversion); the X-CLIP paper is arXiv:2208.02816 (2022-08) and the pinned revision is the Hub's `main` as of 2026-09-14"

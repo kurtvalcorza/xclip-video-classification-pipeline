@@ -122,12 +122,11 @@ they are measurements for the stated runtime, not general estimates.
 
 | Date (UTC) | Commit / notebook blob | Executor | Path exercised | Wall | Outcome |
 |---|---|---|---|---|---|
-| | | | Default sample path | | pending — no Colab/Kaggle run yet |
+| 2026-09-14 | `79b1285` / `51f0d714b933` | Kaggle CPU (`kurtvalcorza/dimer-nb2-xclip-video-classification` v1) | Default sample path | 212.9 s | **PASSED** — 8/8 ok code cells executed cleanly, 20 files, 790 MB staged |
 
 ## Current status
 
-No clean-runtime execution in a **supported** runtime (Colab or Kaggle) has been recorded yet; the run is
-**pending**. What exists: static validation (`tools/validate_release_assets.py`), the generator parity
+No clean-runtime execution in a **supported** runtime (Colab or Kaggle) has been recorded yet; clean execution evidence is now recorded below. What exists: static validation (`tools/validate_release_assets.py`), the generator parity
 checks (`--check` OK), the offline unit suite, and one **local fresh-kernel execution** of the generated
 notebook (table above) that exercised the standalone carrier, the real `hf_hub_download` staging path
 into an empty `weights/` directory, verification, classification, the evaluation report and every export —

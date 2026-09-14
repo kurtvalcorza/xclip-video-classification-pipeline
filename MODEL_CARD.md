@@ -7,7 +7,7 @@ date_published: "2022-08-25"
 date_published_source: "Hugging Face Hub repository creation date of the exact hosted checkpoint (`createdAt` 2022-08-25T13:06:15Z, https://huggingface.co/api/models/microsoft/xclip-base-patch32 — the Transformers-format conversion); the X-CLIP paper is arXiv:2208.02816 (2022-08) and the pinned revision is the Hub's `main` as of 2026-09-14"
 ---
 
-# X-CLIP base/32 (DIMER package v0.1.0) — Zero-Shot Video Classification (Inference)
+# X-CLIP base/32 — Zero-Shot Video Classification (Inference)
 
 [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-microsoft%2Fxclip--base--patch32-ffcc4d?style=flat)](https://huggingface.co/microsoft/xclip-base-patch32)
 [![Upstream GitHub](https://img.shields.io/badge/Upstream%20GitHub-microsoft%2FVideoX-181717?style=flat&logo=github&logoColor=white)](https://github.com/microsoft/VideoX/tree/master/X-CLIP)

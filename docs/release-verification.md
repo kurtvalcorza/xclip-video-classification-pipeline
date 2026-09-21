@@ -110,17 +110,17 @@ Before changing the registry status from `Candidate` to `Release-grade`:
      the `evaluation_report` verdict `sample-sanity` (the inference-only card recorded `top1_accuracy` 0.2 at
      chance 0.2 — an observation, not an assertion);
    - Section 6: the chance baseline (top-1 0.100 exactly), the majority-label baseline (≈ 0.09) and the frozen
-     model's test rates (≈ @P:FROZEN_TOP1@ top-1 / @P:FROZEN_F1@ macro F1 in the Tesla T4 build record —
-     @P:FROZEN_READ@) with four rankings printed under their references;
+     model's test rates (≈ 0.803 top-1 / 0.792 macro F1 in the Tesla T4 build record —
+     the zero-shot prompts already rank 53 of the 66 clips first; the misses sit on `chewing` (3 of 7, the rest called `drawing a sword` or `brushing hair`) and `clapping hands` (3 of 6, called `brushing hair` or `doing a cartwheel`) — close-up upper-body actions the prompts do not separate) with four rankings printed under their references;
    - Section 7: `pipe.adapt` printing epoch 0 as the frozen model, 10,247,680 trainable of 196,585,729 parameters,
-     and an eight-epoch history with the validation top-1 rising (build record: @P:VAL_CURVE@, `best_epoch`
-     @P:BEST_EPOCH@);
+     and an eight-epoch history with the validation top-1 rising (build record: 0.811 → 0.925 → 0.962 → 0.962 → 0.962 → 0.962 → 0.962 → 0.962 → 0.962, `best_epoch`
+     2);
    - Section 8: `pipe.evaluate` on the validation and test splits with the four-way comparison, the per-label
      recall and `outputs/…_evaluation_report.json` written (the cell asserts the adapted test top-1 is at least the
-     frozen one and above chance — @P:ADAPTED_TOP1@ against @P:FROZEN_TOP1@ in the build record, macro F1
-     @P:FROZEN_F1@ → @P:ADAPTED_F1@; the adapted model also clears the majority baseline, reported, not asserted);
+     frozen one and above chance — 0.909 against 0.803 in the build record, macro F1
+     0.792 → 0.905; the adapted model also clears the majority baseline, reported, not asserted);
    - Section 9: six example panels under `outputs/…_examples/`; the five drawn clips re-ranked by the adapted model
-     with `outputs/…_drawing_adapted.json` (build record: @P:DRAWING_AFTER@ — a recorded observation, not an
+     with `outputs/…_drawing_adapted.json` (build record: before adaptation `a ball rolling to the right` → `a ball standing still` (0.69); `a ball bouncing up and down` → `a ball standing still` (0.51); `a square growing larger` → `a ball standing still` (0.43); `the sun setting` → `a ball standing still` (0.46); `a ball standing still` → `a ball standing still` (0.57) (top-1 0.20 over the five drawn labels); after adaptation `a ball rolling to the right` → `a ball standing still` (0.67); `a ball bouncing up and down` → `a ball standing still` (0.47); `a square growing larger` → `a ball bouncing up and down` (0.37); `the sun setting` → `a ball standing still` (0.41); `a ball standing still` → `a ball standing still` (0.55) (top-1 0.20) — a recorded observation, not an
      assertion); `pipe.save_artifact` writing `outputs/…_adapter/{adapter.safetensors,manifest.json}` (the fusion
      head, about 41 MB) and `XClipVideoClassificationPipeline.from_artifact` reloading it with 8/8 identical
      rankings on eight test clips (the cell asserts it); `outputs/…_result.json` written with `NOTEBOOK_SOURCE`, the
@@ -152,7 +152,7 @@ stated runtime, not general estimates.
 
 | Date (UTC) | Commit / notebook blob | Executor | Path exercised | Wall | Outcome |
 |---|---|---|---|---|---|
-| 2026-09-20 | package API at `@P:PROBE_SHA@` (pre-flight, not the notebook blob) | Kaggle Tesla T4 script kernel (`kurtvalcorza/dimer-probe-xclip-e2e` v1; `torch 2.14.0+cu130`, `transformers 4.57.6`, Python 3.12, `cuda:0`, float32), branch cloned, pins installed, snapshot staged from the Hub | `tests/test_model_backed.py` (@P:MB_RESULT@) and the recipe probe: the pinned row group read over a range request (300 clips, digest match), chance and majority baselines, frozen model on the 66 test clips, `adapt(epochs=8, lr=1e-5, batch_size=16)` with validation-accuracy selection, adapted evaluation, artifact round trip | @P:PROBE_WALL@ | @P:PROBE_OUTCOME@ |
+| 2026-09-21 | package API at `d24faf4` (pre-flight, not the notebook blob) | Kaggle Tesla T4 script kernel (`kurtvalcorza/dimer-probe-xclip-e2e` v2 — v1 died after its green pytest on an import-path slip in the probe script, not in the row; `torch 2.14.0+cu130`, `transformers 4.57.6`, Python 3.12, `cuda:0`, float32), branch cloned, pins installed, snapshot staged from the Hub | `tests/test_model_backed.py` (7 passed, 14 warnings in 52.92s) and the recipe probe: the pinned row group read over a range request (300 clips, digest match), chance and majority baselines, frozen model on the 66 test clips, `adapt(epochs=8, lr=1e-5, batch_size=16)` with validation-accuracy selection, adapted evaluation, artifact round trip | 418 s | **PASS** — 7 passed, 14 warnings in 52.92s; the notebook's 8 code cells re-executed through the package API in 94 s with peak CUDA memory 1.83 GB; the metrics it produced are the ones the notebook run above recorded (same seed, same split, same recipe) |
 | 2026-09-20 | package API at the working tree of `feat/e2e-video-classification-adaptation` (pre-flight, not the notebook blob) | Windows venv `dimer-xclip` (`torch 2.14.0+cpu`, `transformers 4.57.6`, `av 18.1.0`, Python 3.12.10, `cpu`, float32), `CUDA_VISIBLE_DEVICES=-1`, `HF_HUB_OFFLINE=1`, row group cached | the CPU recipe sweep on the default split (181 / 53 / 66): frozen 0.803 top-1 / 0.939 top-3 / 0.792 macro F1; head-logits parity with the full forward 3.8e-6; lr 2e-5 / 5e-5 / 1e-4 × 10 epochs all peak in epoch 1 (test 0.909 / 0.894 / 0.848); lr 1e-5 × 8 rises 0.811 → 0.925 → 0.962 on validation (epoch 2 kept), test **0.909 / 0.985 / 0.905**; lr 5e-6 × 8 reaches the same test top-1 at epoch 5; artifact 40,996,184 B, reload parity 8/8; the model-backed suite 6 passed, 1 skipped (CUDA) | ~70 s decode + ~60 s per arm | PASS — pre-flight only; fixed the recipe at lr 1e-5 × 8; not promotion evidence |
 | 2026-09-14 | `79b1285` / `51f0d714b933` (`TASK-INFERENCE`, superseded) | Kaggle CPU (`kurtvalcorza/dimer-nb2-xclip-video-classification` v1) | Default sample path, `Run all` from a fresh interpreter, no repository checkout | 212.9 s | PASSED — 8/8 code cells, 20 files, 790 MB staged; not evidence for the `E2E` blob |
 
@@ -166,11 +166,11 @@ API (table above).
 
 Facts a reviewer should weigh: the sample is ten HMDB51 human actions cut from films and web videos — close to the
 checkpoint's Kinetics-400 training distribution, which is why the frozen zero-shot model already ranks the right class
-first for most held-out clips (@P:FROZEN_READ@) and why the gain is a modest closed-set specialisation, not a repair of
+first for most held-out clips (the zero-shot prompts already rank 53 of the 66 clips first; the misses sit on `chewing` (3 of 7, the rest called `drawing a sword` or `brushing hair`) and `clapping hands` (3 of 6, called `brushing hair` or `doing a cartwheel`) — close-up upper-body actions the prompts do not separate) and why the gain is a modest closed-set specialisation, not a repair of
 a domain gap; the rates are top-1 / top-3 accuracy, macro recall and macro F1 over one reference label per clip and the
 notebook says so; the 53-clip validation split selects the epoch; the towers are frozen, so what the frame encoder
 cannot see in 8 frames at 224 px stays unseen; the head that was tuned ranks every request, and the drawn clips
 re-ranked after adaptation are the only evidence about what happened outside the label set. The forward pass is
 deterministic on a fixed device and dtype, but the training of the head is not bit-reproducible across GPUs, and 66
 clips make one clip 1.5 points, so a Kaggle number a few points off the build record is the expected spread, not a
-finding. @P:SIBLING_COMPARISON@
+finding. The Tesla T4 run reproduced the CPU sweep's numbers exactly (0.909 / 0.985 / 0.905 at epoch 2). This row has no sibling on its corpus — X-CLIP is the fleet's only video model — so the comparison is the frozen prompts against the tuned head on the same 66 clips: the gain comes from four labels (`chewing` 0.43 → 0.86, `diving into water` 0.67 → 1.00, `drawing a sword` 0.71 → 1.00, `clapping hands` 0.50 → 0.67) while `dribbling a basketball` lost one clip (0.71 → 0.57), and the five drawn cartoon clips stay at chance before and after (every clip but one is called `a ball standing still`): the head learned the ten HMDB51 actions, not motion in general.

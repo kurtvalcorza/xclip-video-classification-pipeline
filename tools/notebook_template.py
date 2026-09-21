@@ -64,8 +64,8 @@ TEMPLATE = {
         "clips with the adapted model, exports the adapter as safetensors with a manifest, and reloads that artifact into a "
         "fresh pipeline to verify ranking parity. The default path needs no repository clone, no DIMER worker or service, no "
         "credential, no upload dialog and no configuration edit (NOTEBOOK_SPEC 2.0 §5). On a Tesla T4 the default path took "
-        "about @P:T4_TOTAL_MIN@ minutes of cell time (eight epochs @P:T4_ADAPT_S@ s, frozen scoring of 66 clips "
-        "@P:T4_FROZEN_S@ s); a CUDA runtime is used automatically when present, and the path is practical on CPU too (the "
+        "about 2 minutes of cell time (eight epochs 12 s, frozen scoring of 66 clips "
+        "3 s); a CUDA runtime is used automatically when present, and the path is practical on CPU too (the "
         "build venv decoded the 300 clips in about 70 s, scored the test split in 10 s and ran the eight epochs in about 60 s)."
     ),
     "byod": (
@@ -88,7 +88,7 @@ TEMPLATE = {
         "What this notebook adds to inference is **adaptation of a closed label set on labelled clips**. The clips are 300 "
         "human-action clips of ten HMDB51 classes — brushing hair, doing a cartwheel, catching a ball, chewing, clapping "
         "hands, climbing, climbing stairs, diving into water, drawing a sword, dribbling a basketball — cut from films and "
-        "web videos; the frozen model already ranks the right class first for **@P:FROZEN_TOP1@** of the 66 held-out clips in "
+        "web videos; the frozen model already ranks the right class first for **0.803** of the 66 held-out clips in "
         "the build record (chance is 0.100), so the honest question is narrow: does a bounded fine-tuning of the fusion head "
         "— the frame-integration transformer, the two visual projections and the prompt generator, 10,247,680 of the "
         "parameters — on 181 clips move the held-out **top-1 accuracy**, **top-3 accuracy**, **macro recall** and **macro F1** "
@@ -119,7 +119,7 @@ TEMPLATE = {
         "actions stand in for your videos. The repository exposes none of these."
     ),
     "prerequisites": [
-        "- **Runtime:** a fresh supported runtime (Google Colab or Kaggle, Python 3.12; CPU or CUDA). The default path uses CUDA automatically when present. The vision tower runs `EVAL_BATCH_SIZE` clips (8 × 8 frames) per forward and the build record measured @P:T4_FROZEN_S@ s to score 66 clips and @P:T4_ADAPT_S@ s for the eight epochs (caching the tower features for 181 + 53 clips took @P:T4_CACHE_S@ s) on a Tesla T4, about @P:T4_TOTAL_MIN@ minutes of cell time for the whole path including the pinned install and the downloads; the build venv's CPU ran the same path in a few minutes. The pinned `torch==2.14.0` install, the 786 MB checkpoint and the 113 MB row group are the large downloads of the run.",
+        "- **Runtime:** a fresh supported runtime (Google Colab or Kaggle, Python 3.12; CPU or CUDA). The default path uses CUDA automatically when present. The vision tower runs `EVAL_BATCH_SIZE` clips (8 × 8 frames) per forward and the build record measured 3 s to score 66 clips and 12 s for the eight epochs (caching the tower features for 181 + 53 clips took 6 s) on a Tesla T4, about 2 minutes of cell time for the whole path including the pinned install and the downloads; the build venv's CPU ran the same path in a few minutes. The pinned `torch==2.14.0` install, the 786 MB checkpoint and the 113 MB row group are the large downloads of the run.",
         "- **Knowledge:** basic Python, NumPy and PIL; what a contrastive video–text model scores and why a softmax over a label set you chose is a ranking and not a probability; what top-1 accuracy, macro recall and macro F1 measure on a closed label set and why 66 clips give no dispersion; why clips cut from one source video must stay in one split.",
         "- **Data contract:** records are `{id, frames, label}` — `frames` exactly `NUM_FRAMES` (8) PIL frames of one size with sides within 16..4,096 px (a longer clip is subsampled uniformly by `sample_frames`; a container file is decoded by `decode_clip`), `label` one of the closed label set (normalised like the candidate names: stripped, lower-cased, trailing full stop removed), and an optional `source` naming the video the clip was cut from. Ids match `[A-Za-z0-9_.:-]{1,64}` and are unique; a dataset needs 16..5,000 records, at least two labels and at least two clips per label; splitting de-duplicates by decoded pixels and keeps every clip of one source in one split. BYOD accepts one zip (or directory) of clips plus a `labels.csv` in the layout named above.",
         "- **Validation is structural, not semantic:** every clip is decoded and every label checked against the set, but nothing checks that a label describes its clip — a mislabelled set is fine-tuned on without complaint.",
@@ -303,8 +303,8 @@ TEMPLATE = {
                 "model** is scored by `pipe.evaluate`, which ranks the closed label set for every clip in batches of "
                 "`EVAL_BATCH_SIZE` and returns the rankings with the rates. Expect the frozen model **well above both "
                 "baselines** — it is a zero-shot action classifier and these are human actions: the build record measured "
-                "**@P:FROZEN_TOP1@** top-1 on the 66 held-out clips, with the per-label recall showing which classes it "
-                "misses (@P:FROZEN_WEAK@); read four rankings under their references."
+                "**0.803** top-1 on the 66 held-out clips, with the per-label recall showing which classes it "
+                "misses (`chewing` 0.43, `clapping hands` 0.50, `diving into water` 0.67); read four rankings under their references."
             ),
             "code": (
                 "METRICS = ('top1_accuracy', 'top3_accuracy', 'macro_recall', 'macro_f1')\n\n"
@@ -336,8 +336,8 @@ TEMPLATE = {
                 "scheduler, no augmentation. Epoch 0 records the frozen model's validation rates; every epoch is scored on the "
                 "53 validation clips, and the epoch with the **highest validation top-1 accuracy** (the earliest on ties) is "
                 "kept.\n\n"
-                "Watch the validation top-1 rise from @P:VAL_TOP1_0@ to @P:VAL_TOP1_BEST@ (epoch @P:BEST_EPOCH@ in the build "
-                "record) while the loss drops from about @P:LOSS_1@ to @P:LOSS_LAST@: @P:ADAPTED_READ@. The learning rate is "
+                "Watch the validation top-1 rise from 0.811 to 0.962 (epoch 2 in the build "
+                "record) while the loss drops from about 0.44 to 0.00: the adapted head ranks 60 of 66 held-out clips first (frozen 53), and the reference is in the top three for 65. The learning rate is "
                 "deliberately small — a head this size memorises 181 clips within an epoch or two at 1e-4, and the validation "
                 "curve is then flat from the first epoch."
             ),
@@ -364,9 +364,9 @@ TEMPLATE = {
                 "The test clips were never used for training or epoch selection, and no clip and no source video appears in "
                 "two splits. The adapted model is scored exactly as the frozen model was in Section 6 and the four systems are "
                 "put side by side. Read it in this order: **top-1 accuracy** first (the measure the epoch was selected on — the "
-                "build record measured @P:FROZEN_TOP1@ → **@P:ADAPTED_TOP1@**), then **macro F1** (@P:FROZEN_F1@ → "
-                "@P:ADAPTED_F1@), then **top-3 accuracy** (@P:FROZEN_TOP3@ → @P:ADAPTED_TOP3@), then the per-label recall to "
-                "see which classes moved (@P:ADAPTED_WEAK@). The cell asserts the adapted top-1 is at least the frozen one "
+                "build record measured 0.803 → **0.909**), then **macro F1** (0.792 → "
+                "0.905), then **top-3 accuracy** (0.939 → 0.985), then the per-label recall to "
+                "see which classes moved (`chewing` 0.43 → 0.86, `diving into water` 0.67 → 1.00, `drawing a sword` 0.71 → 1.00; down: `dribbling a basketball` 0.71 → 0.57). The cell asserts the adapted top-1 is at least the frozen one "
                 "and above chance. Sixty-six clips from one seeded split give **no dispersion estimate** — one clip is 1.5 "
                 "points — so the deltas are sample-sanity evidence that the adaptation contract works, not a benchmark, and "
                 "a result on ten HMDB51 actions says nothing about other actions, other cameras or your videos until you "
@@ -410,7 +410,7 @@ TEMPLATE = {
                 "label, the frozen top-3 and the adapted top-3 beneath it) so the numbers can be checked by eye. The five "
                 "drawn clips from Section 5 are then ranked again by the adapted model — the fusion head that was tuned ranks "
                 "every request, so this is a small look at what the adaptation did *outside* its label set and its corpus: "
-                "the build record measured @P:DRAWING_AFTER@ — five cartoons of evidence, not a measurement.\n\n"
+                "the build record measured before adaptation `a ball rolling to the right` → `a ball standing still` (0.69); `a ball bouncing up and down` → `a ball standing still` (0.51); `a square growing larger` → `a ball standing still` (0.43); `the sun setting` → `a ball standing still` (0.46); `a ball standing still` → `a ball standing still` (0.57) (top-1 0.20 over the five drawn labels); after adaptation `a ball rolling to the right` → `a ball standing still` (0.67); `a ball bouncing up and down` → `a ball standing still` (0.47); `a square growing larger` → `a ball bouncing up and down` (0.37); `the sun setting` → `a ball standing still` (0.41); `a ball standing still` → `a ball standing still` (0.55) (top-1 0.20) — five cartoons of evidence, not a measurement.\n\n"
                 "`pipe.save_artifact` writes the trained tensors — the fusion head, about 41 MB in float32 — as "
                 "`adapter.safetensors`, with a `manifest.json` recording the artifact format, the base model id and revision, "
                 "the digest of the base `model.safetensors`, the tensor names, the file size and SHA-256, the label set the "
@@ -473,18 +473,18 @@ TEMPLATE = {
     "closing": (
         "## Interpretation and limits\n\n"
         "A zero-shot video–text model trained on Kinetics-400 already ranks the right one of ten HMDB51 actions first for "
-        "@P:FROZEN_TOP1@ of the held-out clips; a bounded fine-tuning of its fusion head on 181 clips moves that to "
-        "@P:ADAPTED_TOP1@ top-1 and @P:ADAPTED_F1@ macro F1 in the build record, with a 41 MB adapter that reloads "
+        "0.803 of the held-out clips; a bounded fine-tuning of its fusion head on 181 clips moves that to "
+        "0.909 top-1 and 0.905 macro F1 in the build record, with a 41 MB adapter that reloads "
         "ranking-for-ranking. That is the claim: the adaptation contract works end to end on a closed label set with a real "
         "labelled set, and the numbers it produces are read as top-1 / top-3 accuracy, macro recall and macro F1 against two "
         "non-adapted baselines and the frozen model, with the per-label recall beside them rather than in isolation. "
-        "@P:SIBLING_COMPARISON@\n\n"
+        "The Tesla T4 run reproduced the CPU sweep's numbers exactly (0.909 / 0.985 / 0.905 at epoch 2). This row has no sibling on its corpus — X-CLIP is the fleet's only video model — so the comparison is the frozen prompts against the tuned head on the same 66 clips: the gain comes from four labels (`chewing` 0.43 → 0.86, `diving into water` 0.67 → 1.00, `drawing a sword` 0.71 → 1.00, `clapping hands` 0.50 → 0.67) while `dribbling a basketball` lost one clip (0.71 → 0.57), and the five drawn cartoon clips stay at chance before and after (every clip but one is called `a ball standing still`): the head learned the ten HMDB51 actions, not motion in general.\n\n"
         "The test split is 66 clips from one seeded, source-grouped draw of one 300-clip sample, the validation split that "
         "picks the epoch is 53, and every rate is over one reference label per clip — not a benchmark, not the HMDB51 "
         "protocol (three splits over all 51 classes), not a measure of temporal localisation. So a result here says the "
         "contract works on ten actions cut from films, not that the adapted model handles other actions, other cameras or "
         "your clips. The head that was tuned ranks every request: the drawn clips re-ranked in Section 9 are five cartoons "
-        "of evidence about what the tuning did outside its label set (@P:DRAWING_AFTER@), not a measurement, and a "
+        "of evidence about what the tuning did outside its label set (before adaptation `a ball rolling to the right` → `a ball standing still` (0.69); `a ball bouncing up and down` → `a ball standing still` (0.51); `a square growing larger` → `a ball standing still` (0.43); `the sun setting` → `a ball standing still` (0.46); `a ball standing still` → `a ball standing still` (0.57) (top-1 0.20 over the five drawn labels); after adaptation `a ball rolling to the right` → `a ball standing still` (0.67); `a ball bouncing up and down` → `a ball standing still` (0.47); `a square growing larger` → `a ball bouncing up and down` (0.37); `the sun setting` → `a ball standing still` (0.41); `a ball standing still` → `a ball standing still` (0.55) (top-1 0.20)), not a measurement, and a "
         "deployment that ranks other label sets must measure them after adapting. The towers were not adapted: what the "
         "frame encoder cannot see stays unseen, and **the probabilities remain a softmax over your label set**.\n\n"
         "Three things to carry to real data. **Baselines first:** the chance and majority rates on *your* labels, and the "

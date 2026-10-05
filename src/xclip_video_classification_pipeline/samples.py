@@ -387,11 +387,35 @@ def check_split_disjoint(splits: Mapping[str, Sequence[Mapping[str, Any]]]) -> d
     return {name: len(records) for name, records in splits.items()}
 
 
+def _split_counts(per_label: int, val_fraction: float, test_fraction: float) -> tuple[int, int, int]:
+    """(train, validation, test) clips that `split_dataset` aims to cut from one label holding `per_label` clips."""
+    n_test = max(1, round(per_label * test_fraction))
+    n_val = round(per_label * val_fraction)
+    return per_label - n_test - n_val, n_val, n_test
+
+
+def min_byod_records(n_labels: int = 2, *, val_fraction: float = 0.15, test_fraction: float = 0.2) -> dict[str, int]:
+    """The smallest balanced BYOD set (one source per clip) `split_dataset` accepts with `n_labels` labels: every
+    label needs `MIN_PER_CLASS` training clips, a test clip and (when `val_fraction` > 0) a validation clip, and the
+    training split needs `MIN_RECORDS` clips in total. With the default fractions two labels need 24 clips (12 per
+    label, split 8 / 2 / 2), three need 27 (9 per label), and four need 24 (6 per label)."""
+    if isinstance(n_labels, bool) or not isinstance(n_labels, int) or n_labels < 2:
+        raise ValueError("n_labels must be an int >= 2")
+    for per_label in range(1, MAX_RECORDS + 1):
+        train, val, test = _split_counts(per_label, val_fraction, test_fraction)
+        if train >= MIN_PER_CLASS and (val >= 1 or val_fraction == 0) and train * n_labels >= MIN_RECORDS:
+            return {"per_label": per_label, "total": per_label * n_labels, "train_per_label": train,
+                    "validation_per_label": val, "test_per_label": test}
+    raise ValueError("no dataset size satisfies these fractions")
+
+
 def split_dataset(
     records: Sequence[Mapping[str, Any]], *, val_fraction: float = 0.15, test_fraction: float = 0.2, seed: int = 0
 ) -> dict[str, list[dict[str, Any]]]:
-    """Seeded, label-stratified shuffle of a BYOD dataset into train/validation/test after de-duplicating clips;
-    records that carry a `source` keep every clip of one source in one split."""
+    """Seeded, label-stratified shuffle of a BYOD dataset into train/validation/test after de-duplicating clips.
+    Records that carry a `source` keep every clip of one source in one split, **across labels** (a film with two
+    actions never straddles splits): whole sources are dealt in a seeded order to the test split while every label
+    they carry still needs test clips, then to validation, and the rest train."""
     if not (0.0 <= val_fraction < 1.0 and 0.0 < test_fraction < 1.0 and val_fraction + test_fraction < 1.0):
         raise ValueError("fractions must satisfy 0 <= val < 1, 0 < test < 1, val + test < 1")
     checked = validate_dataset(records)["records"]
@@ -403,28 +427,46 @@ def split_dataset(
             seen.add(key)
             unique.append(record)
     rng = random.Random(seed)
-    out: dict[str, list[dict[str, Any]]] = {"test": [], "validation": [], "train": []}
-    by_label: dict[str, dict[str, list[dict[str, Any]]]] = defaultdict(lambda: defaultdict(list))
+    by_source: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    per_label: dict[str, int] = defaultdict(int)
     for record in unique:
-        by_label[record["label"]][record.get("source") or record["id"]].append(record)
-    for label in sorted(by_label):
-        groups = sorted(by_label[label])
-        rng.shuffle(groups)
-        n = sum(len(by_label[label][g]) for g in groups)
-        n_test, n_val = max(1, round(n * test_fraction)), round(n * val_fraction)
-        counts = {"test": 0, "validation": 0}
-        for group in groups:
-            clips = by_label[label][group]
-            if counts["test"] < n_test:
-                out["test"].extend(clips)
-                counts["test"] += len(clips)
-            elif counts["validation"] < n_val:
-                out["validation"].extend(clips)
-                counts["validation"] += len(clips)
-            else:
-                out["train"].extend(clips)
-    if not out["train"]:
-        raise ValueError(f"{len(unique)} distinct clips are too few to split into train/validation/test")
+        by_source[record.get("source") or record["id"]].append(record)
+        per_label[record["label"]] += 1
+    target = {"test": {}, "validation": {}}
+    for label, n in per_label.items():
+        _train, target["validation"][label], target["test"][label] = _split_counts(n, val_fraction, test_fraction)
+    have: dict[str, dict[str, int]] = {"test": defaultdict(int), "validation": defaultdict(int)}
+    out: dict[str, list[dict[str, Any]]] = {"test": [], "validation": [], "train": []}
+    sources = sorted(by_source)
+    rng.shuffle(sources)
+    for source in sources:
+        clips = by_source[source]
+        labels = {r["label"] for r in clips}
+        part = "train"
+        for name in ("test", "validation"):
+            if all(have[name][label] < target[name][label] for label in labels):
+                part = name
+                break
+        out[part].extend(clips)
+        if part != "train":
+            for record in clips:
+                have[part][record["label"]] += 1
+    need = min_byod_records(max(len(per_label), 2), val_fraction=val_fraction, test_fraction=test_fraction)
+    advice = (
+        f"with {len(per_label)} labels and these split fractions supply at least {need['total']} distinct clips, "
+        f"{need['per_label']} per label from separate sources"
+    )
+    for name in ("train", "test", "validation") if val_fraction > 0 else ("train", "test"):
+        present = {r["label"] for r in out[name]}
+        starved = sorted(label for label in per_label if label not in present)
+        if starved:
+            raise ValueError(f"the {name} split holds no clip of {starved[:5]}; {advice}")
+    if len(out["train"]) < MIN_RECORDS:
+        raise ValueError(
+            f"the train split holds {len(out['train'])} clips; at least {MIN_RECORDS} are required — {advice}"
+        )
+    for part in out.values():
+        rng.shuffle(part)
     return out
 
 
@@ -436,12 +478,13 @@ def load_byod_dataset(path: str | Path) -> list[dict[str, Any]]:
     members: dict[str, bytes] = {}
     if source.is_dir():
         for file in sorted(source.rglob("*")):
-            if file.is_file():
+            if file.is_file() and not any(part == "__MACOSX" or part.startswith(".") for part in file.parts):
                 members[file.name] = file.read_bytes()
     elif zipfile.is_zipfile(source):
         with zipfile.ZipFile(source) as archive:
             for info in archive.infolist():
-                if not info.is_dir():
+                parts = Path(info.filename).parts
+                if not info.is_dir() and not any(part == "__MACOSX" or part.startswith(".") for part in parts):
                     members[Path(info.filename).name] = archive.read(info)  # flattened; no extractall
     else:
         raise ValueError(f"{source} is neither a directory nor a zip file")
@@ -451,10 +494,11 @@ def load_byod_dataset(path: str | Path) -> list[dict[str, Any]]:
     if not rows or "file" not in rows[0] or "label" not in rows[0]:
         raise ValueError("labels.csv must have the columns file and label")
     out = []
-    for row in rows:
+    for line, row in enumerate(rows, start=2):  # line 1 is the header
         name = Path(str(row.get("file", "")).strip()).name
+        where = f"labels.csv line {line} (file {name!r})"
         if name not in members:
-            raise ValueError(f"labels.csv names a missing clip: {name}")
+            raise ValueError(f"{where}: names a missing clip (not in the dataset)")
         try:
             if name.lower().endswith((".gif", ".webp")):
                 from .pipeline import frames_from_animation
@@ -463,7 +507,7 @@ def load_byod_dataset(path: str | Path) -> list[dict[str, Any]]:
             else:
                 frames = decode_clip(members[name])
         except Exception as exc:  # noqa: BLE001
-            raise ValueError(f"BYOD file is not a decodable clip of at least {NUM_FRAMES} frames: {name}") from exc
+            raise ValueError(f"{where}: not a decodable clip of at least {NUM_FRAMES} frames") from exc
         rid = str(row.get("id", "") or "").strip()
         item = {"id": rid or re.sub(r"[^A-Za-z0-9_.:-]", "_", Path(name).stem)[:64], "frames": frames, "label": str(row.get("label", ""))}
         if str(row.get("source", "") or "").strip():

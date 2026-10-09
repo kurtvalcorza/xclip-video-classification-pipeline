@@ -1,4 +1,4 @@
-"""Per-repository template for tools/build_notebook.py (NOTEBOOK_SPEC 2.0 §4 standalone carrier).
+"""Per-repository template for tools/build_notebook.py (NOTEBOOK_SPEC 2.2 §4 standalone carrier).
 
 Only the task-specific prose and stage cells live here. Runtime install, the embedded package (three modules,
 carried verbatim in dependency order), and the model pin/stage/verify cells are produced by the generator from
@@ -78,7 +78,7 @@ TEMPLATE = {
         "validation-accuracy epoch selection, scores the held-out clips again, re-runs six held-out clips and the five drawn "
         "clips with the adapted model, exports the adapter as safetensors with a manifest, and reloads that artifact into a "
         "fresh pipeline to verify ranking parity. The default path needs no repository clone, no DIMER worker or service, no "
-        "credential, no upload dialog and no configuration edit (NOTEBOOK_SPEC 2.0 §5). On a Tesla T4 the default path took "
+        "credential, no upload dialog and no configuration edit (NOTEBOOK_SPEC 2.2 §5). On a Tesla T4 the default path took "
         "about 2 minutes of cell time (eight epochs 12 s, frozen scoring of 66 clips "
         "3 s); a CUDA runtime is used automatically when present, and the path is practical on CPU too (the "
         "build venv decoded the 300 clips in about 70 s, scored the test split in 10 s and ran the eight epochs in about 60 s)."
@@ -703,6 +703,6 @@ TEMPLATE = {
         "- Upstream code: https://github.com/microsoft/VideoX/tree/master/X-CLIP\n"
         "- Expanding Language-Image Pretrained Models for General Video Recognition (Ni et al., ECCV 2022): https://arxiv.org/abs/2208.02816\n"
         "- HMDB51 (Serre Lab, CC BY 4.0): https://huggingface.co/datasets/Serrelab/hmdb51 — Kuehne, Jhuang, Garrote, Poggio, Serre, HMDB: A Large Video Database for Human Motion Recognition (ICCV 2011); parquet repack read here: https://huggingface.co/datasets/mteb/HMDB51\n"
-        "- DIMER Notebook Specification 2.0 and Model Card Specification 1.1 (fleet specs in the ml-worker repository)"
+        "- DIMER Notebook Specification 2.2 and Model Card Specification 1.1 (fleet specs in the ml-worker repository)"
     ),
 }

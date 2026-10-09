@@ -452,11 +452,14 @@ class XClipVideoClassificationPipeline:
     def restore_base(self) -> list[str]:
         """Put the pipeline back to the pinned base: copy the base values into every fusion-head tensor an earlier
         adapt() or load_artifact() changed and drop the adapter record, so `classify`, `evaluate` and a new adapt()
-        read the untouched checkpoint. Returns the names of the restored tensors."""
+        read the untouched checkpoint. Returns the names of the tensors that differed from the base."""
         model, _processor = self._require_model()
-        restored = sorted(self._base_state)
+        state = model.state_dict()
+        # Only tensors whose live value differs from the base count as restored, so an adapt() on an unchanged head
+        # reports "pinned base" without claiming an earlier run changed anything (t5-base 93a578f).
+        restored = sorted(n for n, base in self._base_state.items() if not bool((state[n] == base).all()))
         if restored:
-            model.load_state_dict({name: self._base_state[name] for name in restored}, strict=False)
+            model.load_state_dict(dict(self._base_state), strict=False)
             model.eval()
         self.adapter = None
         return restored

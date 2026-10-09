@@ -81,7 +81,10 @@ def test_xcl_m1_section_1_is_idempotent_and_keeps_the_live_worker(notebook, tmp_
     lock_sha = re.search(r"^LOCK_SHA256 = '([0-9a-f]{64})'$", source, re.M).group(1)
     env = tmp_path / "env"
     (env / "bin").mkdir(parents=True)
-    (env / "bin" / "python").symlink_to(sys.executable)
+    try:
+        (env / "bin" / "python").symlink_to(sys.executable)
+    except OSError as exc:  # Windows without the symlink privilege (WinError 1314); the cell targets Linux runtimes
+        pytest.skip(f"cannot create a symlink here: {exc}")
     (env / ".dimer-lock-sha256").write_text(lock_sha + "\n", encoding="utf-8")
     monkeypatch.setenv("DIMER_ISOLATED_ENV", str(env))
     monkeypatch.delenv("DIMER_NOTEBOOK_CI_PREINSTALLED", raising=False)
@@ -140,6 +143,9 @@ class _Tensor:
     def clone(self):
         return _Tensor(self.value.copy())
 
+    def __eq__(self, other):
+        return self.value == other.value
+
 
 class _Model:
     def __init__(self):
@@ -172,6 +178,10 @@ def test_xcl_m2_restore_base_undoes_every_earlier_change_stand_in():
     assert pipe.restore_base() == ["mit.w", "prompts_generator.w"]
     assert model.state["mit.w"].value.tolist() == [1.0, 2.0] and model.state["prompts_generator.w"].value.tolist() == [3.0]
     assert model.state["vision_model.w"].value.tolist() == [4.0] and pipe.adapter is None
+    # Back at the base: nothing differs, so nothing is reported (t5-base 93a578f: a fresh run said "restored 52 tensors").
+    assert pipe.restore_base() == []
+    model.state["mit.w"] = _Tensor([5.0, 2.0])
+    assert pipe.restore_base() == ["mit.w"]
 
 
 def test_xcl_m2_rerun_from_section_4_restores_the_base_and_the_experiment_has_its_own_pipeline(notebook):

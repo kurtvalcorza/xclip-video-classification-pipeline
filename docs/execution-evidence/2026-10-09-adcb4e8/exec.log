@@ -1,0 +1,69 @@
+[colab] Parsing notebook '/home/kurt/colab-runs/xclip-video-classification-pipeline-adcb4e8-2472d4/xclip_video_classification_colab_adcb4e8_colab-cli-t4.ipynb'...
+[colab] Executing cell 1/13 - Infrastructure: build (or reuse) the isolated environment and route later cells to it...
+{'isolated_environment': '/content/dimer_isolated_env_254a30054954', 'reused': False, 'isolated_python': '3.12.12', 'kernel_python': '3.13.15', 'locked_packages': 49, 'setup_seconds': 54}
+{'routed_to': '/content/dimer_isolated_env_254a30054954/bin/python', 'worker_pid': 1769, 'worker_reused': False}
+[colab] Executing cell 2/13 - Infrastructure: record the runtime...
+{'notebook_source': {'repository': 'xclip-video-classification-pipeline', 'repository_revision': '1a3e196925857475bb2266a048ad206f4c1d1953', 'embedded_module': 'src/xclip_video_classification_pipeline/pipeline.py', 'embedded_modules': ['src/xclip_video_classification_pipeline/pipeline.py', 'src/xclip_video_classification_pipeline/metrics.py', 'src/xclip_video_classification_pipeline/samples.py'], 'module_sha256': 'eae2c1c3a77ed5c73d34aa07782e98650415ca9738abf8a7382cfbcd9bccdcfb', 'generator': 'build_notebook.py/2.2', 'notebook_spec': '2.2'}, 'python': '3.12.12', 'executable': '/content/dimer_isolated_env_254a30054954/bin/python', 'torch': '2.14.0+cu130', 'transformers': '4.57.6', 'av': '18.1.0', 'cuda': True}
+[colab] Executing cell 3/13 - xclip_video_classification-08...
+[colab] Executing cell 4/13 - xclip_video_classification-10...
+[colab] Executing cell 5/13 - xclip_video_classification-12...
+[colab] Executing cell 6/13 - Infrastructure: stage and digest-verify the pinned snapshot, then load the model...
+{'model_id': 'microsoft/xclip-base-patch32', 'revision': 'a2e27a78a2b5d802e894b8a1ef14f3a8ce490963', 'license': 'mit', 'files': 9, 'total_bytes': 790034990}
+{'weights_dir': '/content/weights/xclip-base-patch32', 'fetched': ['README.md', 'config.json', 'merges.txt', 'model.safetensors', 'preprocessor_config.json', 'special_tokens_map.json', 'tokenizer.json', 'tokenizer_config.json', 'vocab.json']}
+{'verified_files': 9, 'revision': 'a2e27a78a2b5d802e894b8a1ef14f3a8ce490963'}
+{'device': 'cuda:0', 'source': 'local-snapshot'}
+[colab] Executing cell 7/13 - xclip_video_classification-16...
+{'data_source': 'HMDB51 (test shard), first parquet row group: the ten first action classes @ 50bb2abb7410 (CC BY 4.0 (HMDB51, Serre Lab, Brown University; Kuehne, Jhuang, Garrote, Poggio, Serre, ICCV 2011; parquet repack mteb/HMDB51))', 'raw_rows': {'row_groups': 1, 'rows': 318, 'clips_kept': 300, 'bytes': 112858624, 'fetch_seconds': 11.4, 'decode_seconds': 29.6}, 'splits': {'train': 181, 'validation': 53, 'test': 66}, 'labels': ['brushing hair', 'doing a cartwheel', 'catching a ball', 'chewing', 'clapping hands', 'climbing', 'climbing stairs', 'diving into water', 'drawing a sword', 'dribbling a basketball']}
+{'train': {'n': 181, 'per_label': {'brushing hair': 18, 'doing a cartwheel': 20, 'catching a ball': 18, 'chewing': 18, 'clapping hands': 20, 'climbing': 16, 'climbing stairs': 19, 'diving into water': 19, 'drawing a sword': 18, 'dribbling a basketball': 15}, 'sources': 42, 'width': {'min': 288, 'max': 480}, 'height': {'min': 240, 'max': 240}, 'digest': '297eeabaf4f4ed29...'}}
+{'validation': {'n': 53, 'per_label': {'brushing hair': 6, 'doing a cartwheel': 4, 'catching a ball': 5, 'chewing': 5, 'clapping hands': 4, 'climbing': 6, 'climbing stairs': 5, 'diving into water': 5, 'drawing a sword': 5, 'dribbling a basketball': 8}, 'sources': 23, 'width': {'min': 320, 'max': 560}, 'height': {'min': 240, 'max': 240}, 'digest': 'c1a7f457c79ce1bc...'}}
+{'test': {'n': 66, 'per_label': {'brushing hair': 6, 'doing a cartwheel': 6, 'catching a ball': 7, 'chewing': 7, 'clapping hands': 6, 'climbing': 8, 'climbing stairs': 6, 'diving into water': 6, 'drawing a sword': 7, 'dribbling a basketball': 7}, 'sources': 48, 'width': {'min': 304, 'max': 440}, 'height': {'min': 240, 'max': 240}, 'digest': '62cac6261f99e01a...'}}
+{'example': {'id': 'hmdb51-test-0-13', 'frames': 8, 'frame_size': [320, 240], 'label': 'brushing hair', 'source': 'Ella_brushing_her_amazing_long_hair/brush_hair'}}
+{'probe': 'duplicate id', 'rejected': "duplicate id 'same'"}
+{'probe': 'label outside the set', 'rejected': "records[0]: label 'juggling' is not in the label set ['brushing hair', 'doing a cartwheel', 'catching a ball',"}
+{'probe': 'clip with three frames', 'rejected': 'records[0]: a clip is exactly NUM_FRAMES=8 frames, got 3; use sample_frames to subsample a longer sequence'}
+{'probe': 'too small', 'rejected': '8 records; 16..5000 are required'}
+[colab] Executing cell 8/13 - xclip_video_classification-19...
+{'ceilings': {'NUM_FRAMES': 8, 'FRAME_SIZE': 224, 'MIN_IMAGE_SIDE': 16, 'MAX_IMAGE_SIDE': 4096, 'MIN_LABELS': 2, 'MAX_LABELS': 32, 'MAX_LABEL_CHARS': 64, 'MAX_TEXT_TOKENS': 77, 'MIN_RECORDS': 16, 'MAX_RECORDS': 5000, 'MIN_PER_CLASS': 2, 'EVAL_BATCH_SIZE': 8, 'device': 'cuda:0'}}
+{'drawn_clips': 5, 'manifest_verdict': 'accepted', 'findings': 1}
+{'frozen': {'seconds': [0.863, 0.083, 0.078, 0.078, 0.073], 'checks': {'probabilities_sum_to_one': True, 'one_entry_per_label': True, 'ranked_descending': True, 'identity_reported': True}, 'top1': [('synthetic_a_ball_rolling_to_the_right', 'a ball standing still', 0.689), ('synthetic_a_ball_bouncing_up_and_down', 'a ball standing still', 0.512), ('synthetic_a_square_growing_larger', 'a ball standing still', 0.427), ('synthetic_the_sun_setting', 'a ball standing still', 0.459), ('synthetic_a_ball_standing_still', 'a ball standing still', 0.567)], 'verdict': 'sample-sanity', 'top1_accuracy': 0.2, 'chance': 0.2}}
+[colab] Executing cell 9/13 - xclip_video_classification-22...
+{'chance_baseline': {'top1_accuracy': 0.1, 'top3_accuracy': 0.3, 'macro_recall': 0.1, 'macro_f1': 0.1}, 'n': 66, 'n_labels': 10}
+{'majority_baseline': {'top1_accuracy': 0.091, 'top3_accuracy': 0.288, 'macro_recall': 0.1, 'macro_f1': 0.017}, 'label': 'doing a cartwheel'}
+{'frozen_model_test': {'top1_accuracy': 0.803, 'top3_accuracy': 0.939, 'macro_recall': 0.802, 'macro_f1': 0.792}, 'n': 66, 'mean_rank': 1.42, 'verdict': 'measured', 'seconds': 3.6}
+{'per_label_recall': {'brushing hair': 1.0, 'doing a cartwheel': 1.0, 'catching a ball': 1.0, 'chewing': 0.43, 'clapping hands': 0.5, 'climbing': 1.0, 'climbing stairs': 1.0, 'diving into water': 0.67, 'drawing a sword': 0.71, 'dribbling a basketball': 0.71}}
+{'definitions': {'top1_accuracy': 'fraction of clips whose highest-scoring label is the reference label', 'top3_accuracy': 'fraction of clips whose reference label is among the 3 highest-scoring labels (1.0 by construction when the label set has 3 or fewer labels)', 'macro_recall': 'mean over the label set of the per-label recall (correct clips of that label / clips of that label); labels absent from the records are skipped', 'macro_f1': 'mean over the label set of the per-label F1 between precision and recall of the top-1 decision; labels absent from both references and predictions are skipped', 'confusion': 'reference label -> predicted top-1 label -> count', 'baselines': 'chance = 1 / |labels| top-1 by construction; majority = the most frequent training label predicted for every clip'}}
+{'id': 'hmdb51-test-0-23', 'reference': 'brushing hair', 'frozen_top3': ['brushing hair', 'doing a cartwheel', 'catching a ball'], 'top1_probability': 0.991}
+{'id': 'hmdb51-test-0-28', 'reference': 'brushing hair', 'frozen_top3': ['brushing hair', 'dribbling a basketball', 'drawing a sword'], 'top1_probability': 0.998}
+{'id': 'hmdb51-test-0-29', 'reference': 'brushing hair', 'frozen_top3': ['brushing hair', 'drawing a sword', 'dribbling a basketball'], 'top1_probability': 0.998}
+{'id': 'hmdb51-test-0-10', 'reference': 'brushing hair', 'frozen_top3': ['brushing hair', 'climbing stairs', 'drawing a sword'], 'top1_probability': 0.996}
+{'frozen_vs_baselines': 'pre-trained model above both baselines'}
+[colab] Executing cell 10/13 - xclip_video_classification-25...
+{'epoch': 0, 'train_loss': None, 'val_top1_accuracy': 0.811, 'val_top3_accuracy': 0.925, 'val_macro_recall': 0.803, 'val_macro_f1': 0.767, 'note': 'frozen model'}
+{'epoch': 1, 'train_loss': 0.4367, 'val_top1_accuracy': 0.925, 'val_top3_accuracy': 0.962, 'val_macro_recall': 0.92, 'val_macro_f1': 0.916}
+{'epoch': 2, 'train_loss': 0.0819, 'val_top1_accuracy': 0.962, 'val_top3_accuracy': 0.981, 'val_macro_recall': 0.96, 'val_macro_f1': 0.955}
+{'epoch': 3, 'train_loss': 0.0101, 'val_top1_accuracy': 0.962, 'val_top3_accuracy': 0.981, 'val_macro_recall': 0.96, 'val_macro_f1': 0.956}
+{'epoch': 4, 'train_loss': 0.0015, 'val_top1_accuracy': 0.962, 'val_top3_accuracy': 0.981, 'val_macro_recall': 0.96, 'val_macro_f1': 0.956}
+{'epoch': 5, 'train_loss': 0.0005, 'val_top1_accuracy': 0.962, 'val_top3_accuracy': 0.981, 'val_macro_recall': 0.96, 'val_macro_f1': 0.956}
+{'epoch': 6, 'train_loss': 0.0003, 'val_top1_accuracy': 0.962, 'val_top3_accuracy': 0.981, 'val_macro_recall': 0.96, 'val_macro_f1': 0.956}
+{'epoch': 7, 'train_loss': 0.0003, 'val_top1_accuracy': 0.962, 'val_top3_accuracy': 0.981, 'val_macro_recall': 0.96, 'val_macro_f1': 0.956}
+{'epoch': 8, 'train_loss': 0.0002, 'val_top1_accuracy': 0.962, 'val_top3_accuracy': 0.981, 'val_macro_recall': 0.96, 'val_macro_f1': 0.956}
+{'labels': ['brushing hair', 'doing a cartwheel', 'catching a ball', 'chewing', 'clapping hands', 'climbing', 'climbing stairs', 'diving into water', 'drawing a sword', 'dribbling a basketball'], 'trainable_parameters': 10247680, 'total_parameters': 196585729, 'best_epoch': 2, 'selection': 'highest validation top-1 accuracy', 'objective': 'cross-entropy over the closed label set on cached tower features', 'cache_seconds': 7.261, 'started_from': 'pinned base', 'seconds': 14.6}
+[colab] Executing cell 11/13 - xclip_video_classification-28...
+{'top1_accuracy': {'chance': 0.1, 'majority': 0.091, 'frozen': 0.803, 'adapted': 0.909}}
+{'top3_accuracy': {'chance': 0.3, 'majority': 0.288, 'frozen': 0.939, 'adapted': 0.985}}
+{'macro_recall': {'chance': 0.1, 'majority': 0.1, 'frozen': 0.802, 'adapted': 0.91}}
+{'macro_f1': {'chance': 0.1, 'majority': 0.017, 'frozen': 0.792, 'adapted': 0.905}}
+{'delta_vs_frozen': {'top1_accuracy': 0.106, 'top3_accuracy': 0.045, 'macro_recall': 0.107, 'macro_f1': 0.112}}
+{'per_label_recall': {'brushing hair': {'frozen': 1.0, 'adapted': 1.0, 'support': 6}, 'doing a cartwheel': {'frozen': 1.0, 'adapted': 1.0, 'support': 6}, 'catching a ball': {'frozen': 1.0, 'adapted': 1.0, 'support': 7}, 'chewing': {'frozen': 0.43, 'adapted': 0.86, 'support': 7}, 'clapping hands': {'frozen': 0.5, 'adapted': 0.67, 'support': 6}, 'climbing': {'frozen': 1.0, 'adapted': 1.0, 'support': 8}, 'climbing stairs': {'frozen': 1.0, 'adapted': 1.0, 'support': 6}, 'diving into water': {'frozen': 0.67, 'adapted': 1.0, 'support': 6}, 'drawing a sword': {'frozen': 0.71, 'adapted': 1.0, 'support': 7}, 'dribbling a basketball': {'frozen': 0.71, 'adapted': 0.57, 'support': 7}}}
+{'verdicts': {'frozen_vs_baselines': 'pre-trained model above both baselines', 'adapted_vs_frozen_top1_accuracy': 'improved', 'adapted_vs_frozen_top3_accuracy': 'improved', 'adapted_vs_frozen_macro_recall': 'improved', 'adapted_vs_frozen_macro_f1': 'improved', 'adapted_above_both_baselines': True}}
+{'verdicts': {'frozen_vs_baselines': 'pre-trained model above both baselines', 'adapted_vs_frozen_top1_accuracy': 'improved', 'adapted_vs_frozen_top3_accuracy': 'improved', 'adapted_vs_frozen_macro_recall': 'improved', 'adapted_vs_frozen_macro_f1': 'improved', 'adapted_above_both_baselines': True}}
+{'report': 'outputs/xclip_video_classification_evaluation_report.json', 'adapted_beats_both_baselines': True}
+[colab] Executing cell 12/13 - xclip_video_classification-31...
+{'examples': ['hmdb51-test-0-10.png', 'hmdb51-test-0-11.png', 'hmdb51-test-0-12.png', 'hmdb51-test-0-23.png', 'hmdb51-test-0-28.png', 'hmdb51-test-0-29.png'], 'rows': ['reference', 'frozen top-3', 'adapted top-3']}
+{'adapted': {'seconds': [0.052, 0.052, 0.051, 0.055, 0.054], 'checks': {'probabilities_sum_to_one': True, 'one_entry_per_label': True, 'ranked_descending': True, 'identity_reported': True}, 'top1': [('synthetic_a_ball_rolling_to_the_right', 'a ball standing still', 0.667), ('synthetic_a_ball_bouncing_up_and_down', 'a ball standing still', 0.468), ('synthetic_a_square_growing_larger', 'a ball bouncing up and down', 0.367), ('synthetic_the_sun_setting', 'a ball standing still', 0.405), ('synthetic_a_ball_standing_still', 'a ball standing still', 0.549)], 'verdict': 'sample-sanity', 'top1_accuracy': 0.2, 'chance': 0.2}}
+{'artifact': 'outputs/xclip_video_classification_adapter', 'format': 'org.valcorza.xclip-base-patch32.adapter.v1', 'tensors': 50, 'bytes': 40996184, 'sha256': '5129c534576354e5...', 'labels': ['brushing hair', 'doing a cartwheel', 'catching a ball', 'chewing', 'clapping hands', 'climbing', 'climbing stairs', 'diving into water', 'drawing a sword', 'dribbling a basketball'], 'best_epoch': 2}
+{'reload_parity': {'identical_rankings': 8, 'of': 8}, 'reloaded_best_epoch': 2}
+['xclip_video_classification_adapter', 'xclip_video_classification_drawing_adapted.json', 'xclip_video_classification_drawing_frozen.json', 'xclip_video_classification_evaluation_report.json', 'xclip_video_classification_example_clip.png', 'xclip_video_classification_examples', 'xclip_video_classification_input_manifest.json', 'xclip_video_classification_result.json', 'xclip_video_classification_train.csv']
+[colab] Executing cell 13/13 - xclip_video_classification-34...
+{'experiment': 'skipped (RUN_EXPERIMENT = False); the default path above is complete'}
+[colab] Saving notebook with outputs to '/home/kurt/colab-runs/xclip-video-classification-pipeline-adcb4e8-2472d4/xclip_video_classification_colab_adcb4e8_colab-cli-t4_output.ipynb'...

@@ -19,7 +19,7 @@ import json
 import random
 import time
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -437,6 +437,32 @@ class XClipVideoClassificationPipeline:
     _processor: Any = None
     weight_sha256: str | None = None
     adapter: dict[str, Any] | None = None
+    # Pinned-base values of every fusion-head tensor adapt() or load_artifact() has changed, kept the first time each
+    # is about to change: every adaptation and every frozen evaluation after restore_base() reads the verified base,
+    # never a previous run (review finding XCL-M2).
+    _base_state: dict[str, Any] = field(default_factory=dict, repr=False)
+
+    def _remember_base(self, names: Sequence[str]) -> None:
+        model, _processor = self._require_model()
+        state = model.state_dict()
+        for name in names:
+            if name not in self._base_state:
+                self._base_state[name] = state[name].detach().clone()
+
+    def restore_base(self) -> list[str]:
+        """Put the pipeline back to the pinned base: copy the base values into every fusion-head tensor an earlier
+        adapt() or load_artifact() changed and drop the adapter record, so `classify`, `evaluate` and a new adapt()
+        read the untouched checkpoint. Returns the names of the tensors that differed from the base."""
+        model, _processor = self._require_model()
+        state = model.state_dict()
+        # Only tensors whose live value differs from the base count as restored, so an adapt() on an unchanged head
+        # reports "pinned base" without claiming an earlier run changed anything (t5-base 93a578f).
+        restored = sorted(n for n, base in self._base_state.items() if not bool((state[n] == base).all()))
+        if restored:
+            model.load_state_dict(dict(self._base_state), strict=False)
+            model.eval()
+        self.adapter = None
+        return restored
 
     @classmethod
     def from_pretrained(
@@ -671,7 +697,9 @@ class XClipVideoClassificationPipeline:
         set under no gradient and their outputs are cached, so each step runs only the head; the logits equal the
         full model's exactly. AdamW (no weight decay), gradient clipping at `GRAD_CLIP`, seeded shuffling, no
         scheduler, no augmentation. Epoch 0 records the frozen model's validation metrics; the epoch with the highest
-        validation top-1 accuracy (the earliest on ties) is kept. On any exception the frozen head is restored."""
+        validation top-1 accuracy (the earliest on ties) is kept. Every call starts from the pinned base: head tensors
+        an earlier adapt() or load_artifact() changed are restored first, so epoch 0 is always the frozen model. On
+        any exception the head and the adapter record this call found are put back."""
         from .metrics import classification_metrics
         from .samples import validate_dataset
 
@@ -691,9 +719,14 @@ class XClipVideoClassificationPipeline:
         head_names = _trainable_names(model)
         params = {name: param for name, param in model.named_parameters() if name in set(head_names)}
         n_trainable = sum(p.numel() for p in params.values())
+        # The head and adapter as this call found them: a failed call puts them back (the transactional contract),
+        # while a successful one starts from the pinned base.
+        backup = {name: param.detach().clone() for name, param in params.items()}
+        previous_adapter = self.adapter
+        restored = self.restore_base()
+        self._remember_base(head_names)
         for name, param in model.named_parameters():
             param.requires_grad_(name in params)
-        backup = {name: param.detach().clone() for name, param in params.items()}
         cudnn_flags = torch.backends.cudnn.deterministic, torch.backends.cudnn.benchmark
         torch.backends.cudnn.deterministic, torch.backends.cudnn.benchmark = True, False
         try:
@@ -758,6 +791,7 @@ class XClipVideoClassificationPipeline:
                 for name, param in params.items():
                     param.copy_(backup[name])
             model.eval()
+            self.adapter = previous_adapter
             raise
         finally:
             for param in model.parameters():
@@ -774,6 +808,8 @@ class XClipVideoClassificationPipeline:
             "selection": "highest validation top-1 accuracy" if val_checked is not None else "final epoch (no validation split)",
             "lr": lr,
             "seed": seed,
+            "started_from": "pinned base"
+            + (f" (restored {len(restored)} head tensors changed by an earlier run)" if restored else ""),
             "grad_clip": GRAD_CLIP,
             "objective": "cross-entropy over the closed label set on cached tower features",
             "n_train": len(train_checked),
@@ -838,6 +874,8 @@ class XClipVideoClassificationPipeline:
         for name, tensor in tensors.items():
             if tuple(tensor.shape) != tuple(state[name].shape):
                 raise ValueError(f"artifact tensor {name} has shape {tuple(tensor.shape)}, base has {tuple(state[name].shape)}")
+        self.restore_base()
+        self._remember_base(sorted(tensors))
         model.load_state_dict({k: v.to(state[k].device, state[k].dtype) for k, v in tensors.items()}, strict=False)
         model.eval()
         self.adapter = {**manifest["adapter"], "trainable_names": expected, "history": manifest.get("history", [])}

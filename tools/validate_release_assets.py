@@ -1,6 +1,6 @@
 """Static release-asset validation for the X-CLIP base/32 video-classification DIMER pipeline.
 
-Checks the STANDALONE tutorial notebook (DIMER Notebook Specification 2.0 §4), the tutorial
+Checks the STANDALONE tutorial notebook (DIMER Notebook Specification 2.2 §4), the tutorial
 registry, model card, README, STATUS.md and weight documentation for source conformance and
 cross-document identity consistency, and runs the generator parity checks (PAR1–PAR3).
 
@@ -49,6 +49,8 @@ CODE_MARKERS = (
     "corpus = read_corpus(corpus_groups)",
     "splits = build_sample_dataset(corpus, seed=SPLIT_SEED)",
     "records = load_byod_dataset(byod_zip)",
+    "restored_tensors = pipe.restore_base()",
+    "BYOD_PATH = ''",
     "splits = split_dataset(records, seed=SPLIT_SEED)",
     "dataset_manifests = {name: validate_dataset(part, LABELS, min_records=1, min_per_class=1) for name, part in splits.items()}",
     "disjoint = check_split_disjoint(splits)",
@@ -67,12 +69,16 @@ CODE_MARKERS = (
     "adapt_result = pipe.adapt(train_records, val_records, LABELS, epochs=EPOCHS, lr=LEARNING_RATE, batch_size=BATCH_SIZE, progress=report)",
     "adapted_test = pipe.evaluate(test_records, LABELS, batch_size=EVAL_BATCH_SIZE)",
     "adapted_val = pipe.evaluate(val_records, LABELS, batch_size=EVAL_BATCH_SIZE)",
-    "assert adapted_test['top1_accuracy'] >= frozen_test['top1_accuracy']",
-    "assert adapted_test['top1_accuracy'] > baseline_chance['top1_accuracy']",
+    "comparison['verdicts'] = ",
+    "frozen_verdict = ",
     "adapted_drawn, adapted_drawn_timings, adapted_drawn_checks, adapted_drawn_report = rank_drawings(pipe, 'adapted')",
     "pipe.save_artifact(artifact_dir, metadata={'tutorial': 'xclip_video_classification', 'data_source': data_source})",
     "reloaded = XClipVideoClassificationPipeline.from_artifact(artifact_dir, weights_dir=WEIGHTS_DIR, device=pipe.device)",
     "assert parity['identical_rankings'] == parity['of']",
+    # Section 10 (optional, off by default): its own pipeline, default exports checked unchanged (XCL-M2)
+    "RUN_EXPERIMENT = False",
+    "experiment_pipe = XClipVideoClassificationPipeline.from_pretrained(weights_dir=WEIGHTS_DIR, device=pipe.device)",
+    "raise RuntimeError(f'the experiment changed a default export: {unchanged}')",
     "'model_revision': MODEL_REVISION",
     "'model_license': MODEL_LICENSE",
     "'weight_file': WEIGHTS_FILE, 'weight_format': 'safetensors, digest-verified', 'weight_sha256': pipe.weight_sha256",
@@ -110,7 +116,14 @@ MARKDOWN_MARKERS = (
     "## 9. Look at the clips, rank the drawings again, export the adapter and reload it",
     "**Macro over micro:**",
     "**Leakage:**",
-    "**Troubleshooting.**",
+    "## Troubleshooting",
+    # The guided layer (2026-10-05 review fix XCL-M3)
+    "**Who this notebook is for.**",
+    "**How to use this notebook.**",
+    "**Predict before running:**",
+    "<details><summary>Check your reasoning</summary>",
+    "## Glossary",
+    "## Conclusion (your notes)",
 )
 # Direct-library use that must stay inside the carried module cells (G2: the notebook calls the
 # pipeline API, it does not reimplement it). Checked on every code cell except the embedded ones
@@ -137,14 +150,16 @@ FORBIDDEN_OUTSIDE_MODULE = (
     "pipe._processor",
     "extractall(",
 )
-INSTALL_CELL_MARKER = "subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', *PINS], check=True)"
+# The one kernel cell (generator /2.2 isolated runtime): it builds the hash-locked environment and routes every later
+# cell to it, so it is the one place `subprocess.run([` and `urllib.request` belong.
+INSTALL_CELL_MARKER = "# dimer: kernel cell"
 # ---------------------------------------------------------------------------
 # Shared checks. Everything below is source/structure validation only. Passing
 # these checks is NOT clean-runtime execution evidence under DIMER Notebook
-# Specification 2.0; see docs/release-verification.md for the release gate.
+# Specification 2.2; see docs/release-verification.md for the release gate.
 # ---------------------------------------------------------------------------
 
-NOTEBOOK_SPEC = "2.0"
+NOTEBOOK_SPEC = "2.2"
 ALLOWED_PROFILES = {"E2E", "ARTIFACT-INFERENCE", "TASK-INFERENCE", "MULTI-CAPABILITY", "SMOKE"}
 STATUS_TOKENS = ("Candidate", "Release-grade")
 PLACEHOLDER = re.compile(r"\b(TODO|TBD|FIXME)\b|Insert text here|Tooltip:", re.I)
@@ -182,9 +197,11 @@ COMMON_CODE_MARKERS = (
     "PINS = [",
     "NOTEBOOK_SOURCE = {",
     "SKIP_INSTALL = os.environ.get('DIMER_NOTEBOOK_CI_PREINSTALLED') == '1'",
-    "subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', *PINS], check=True)",
-    "importlib.metadata.packages_distributions()",
-    "importlib.invalidate_caches()",
+    "'--require-hashes', '--only-binary', ':all:'",
+    "'--managed-python'",
+    "if len(wheel) != UV_BYTES or hashlib.sha256(wheel).hexdigest() != UV_SHA256:",
+    "if hashlib.sha256(LOCK_TEXT.encode('utf-8')).hexdigest() != LOCK_SHA256:",
+    "_ip.input_transformers_cleanup.append(_route_to_isolated_runtime)",
     "platform.python_version()",
     "torch.__version__",
     "MANIFEST = {",
@@ -613,18 +630,14 @@ def _validate_parity(path: Path, notebook: dict, code_cells: list[tuple[int, str
 
 
 def _validate_bootstrap_guard(path: Path, code_cells: list[tuple[int, str, ast.Module]]) -> None:
-    """The stale-import guard must actually raise: `if stale:` whose body raises RuntimeError."""
-    raises = False
-    for _, _, tree in code_cells:
-        for node in ast.walk(tree):
-            if isinstance(node, ast.If) and isinstance(node.test, ast.Name) and node.test.id == "stale":
-                for sub in ast.walk(node):
-                    if isinstance(sub, ast.Raise) and isinstance(sub.exc, ast.Call):
-                        func = sub.exc.func
-                        if isinstance(func, ast.Name) and func.id == "RuntimeError":
-                            raises = True
-    _check(raises, f"{path.name}: install cell must raise RuntimeError when already-imported packages change")
-
+    """RUN1/RUN10/ENV6 (2026-10-05 review fix): nothing is pip-installed into the kernel and no cell asks for a restart.
+    Exactly one cell runs in the kernel (the isolated-environment bootstrap); it reuses a matching environment."""
+    kernel = [source for _, source, _ in code_cells if INSTALL_CELL_MARKER in source]
+    _check(len(kernel) == 1, f"{path.name}: exactly one '{INSTALL_CELL_MARKER}' bootstrap cell is required, found {len(kernel)}")
+    code = "\n".join(source for _, source, _ in code_cells)
+    _check("'-m', 'pip', 'install'" not in code and "pip install" not in code, f"{path.name}: no cell may pip-install into the notebook kernel (RUN10)")
+    _check("Restart the runtime" not in code, f"{path.name}: no cell may ask for a runtime restart (RUN1)")
+    _check("_isolated_environment_ready()" in kernel[0], f"{path.name}: the bootstrap cell must reuse a matching isolated environment")
 
 def _validate_notebook_content(
     path: Path, code_cells: list[tuple[int, str, ast.Module]], markdown: str, embedded: list[int]

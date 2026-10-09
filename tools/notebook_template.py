@@ -1,4 +1,4 @@
-"""Per-repository template for tools/build_notebook.py (NOTEBOOK_SPEC 2.0 §4 standalone carrier).
+"""Per-repository template for tools/build_notebook.py (NOTEBOOK_SPEC 2.2 §4 standalone carrier).
 
 Only the task-specific prose and stage cells live here. Runtime install, the embedded package (three modules,
 carried verbatim in dependency order), and the model pin/stage/verify cells are produced by the generator from
@@ -22,6 +22,20 @@ TEMPLATE = {
     "notebook_name": "xclip_video_classification_colab.ipynb",
     "profile": "E2E",
     "mode": "GUIDED",
+    "isolated_runtime": True,
+    "infrastructure_labels": True,
+    # The fleet's uv isolated-environment mechanism (bioclip2-biodiversity-pipeline): managed CPython, a size- and
+    # SHA-256-verified uv wheel, and a lock compiled from the pyproject pins with
+    # `uv pip compile pyproject.toml --python-version 3.12 --python-platform x86_64-manylinux_2_28 --generate-hashes
+    # --only-binary :all: -o tutorials/requirements-colab.lock.txt`.
+    "managed_python": "3.12.12",
+    "uv": {
+        "version": "0.12.15",
+        "url": "https://files.pythonhosted.org/packages/1e/fd/432451d732917c49152a291de3ef171aa6b0f1a22d39780fb2c1f085ca4c/uv-0.12.15-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+        "bytes": 20081404,
+        "sha256": "aee9802f46bae436bd91751bb33ddeb379ef1596b5c19df193219d545d244b60",
+    },
+    "lock": "tutorials/requirements-colab.lock.txt",
     "pipeline_class": "XClipVideoClassificationPipeline",
     "weights_key": "xclip-base-patch32",
     "modules": ["pipeline.py", "metrics.py", "samples.py"],
@@ -52,7 +66,8 @@ TEMPLATE = {
     ],
     "capability": "zero-shot video classification — one 8-frame clip plus 2–32 free-text class names → a ranking of those names with a softmax over them — and bounded supervised fine-tuning of the fusion head on labelled clips of a closed label set, using the pinned `microsoft/xclip-base-patch32` weights",
     "run_all": (
-        "Selecting **Run all** in a fresh supported runtime installs the pinned dependencies, stages and digest-verifies the "
+        "Selecting **Run all** in a fresh supported runtime builds an isolated environment from the hash-locked pins (nothing is "
+        "installed into the notebook's own Python, so no restart is needed and Run all completes in one pass), stages and digest-verifies the "
         "pinned `microsoft/xclip-base-patch32` snapshot (a 786 MB `model.safetensors`; no pickle is opened anywhere), fetches "
         "the first row group of the HMDB51 test shard from the Hugging Face Hub at an immutable revision with one HTTPS range "
         "request (about 113 MB; refused on any SHA-256 or byte-total mismatch), decodes the 300 clips of the ten sample classes "
@@ -63,15 +78,17 @@ TEMPLATE = {
         "validation-accuracy epoch selection, scores the held-out clips again, re-runs six held-out clips and the five drawn "
         "clips with the adapted model, exports the adapter as safetensors with a manifest, and reloads that artifact into a "
         "fresh pipeline to verify ranking parity. The default path needs no repository clone, no DIMER worker or service, no "
-        "credential, no upload dialog and no configuration edit (NOTEBOOK_SPEC 2.0 §5). On a Tesla T4 the default path took "
+        "credential, no upload dialog and no configuration edit (NOTEBOOK_SPEC 2.2 §5). On a Tesla T4 the default path took "
         "about 2 minutes of cell time (eight epochs 12 s, frozen scoring of 66 clips "
         "3 s); a CUDA runtime is used automatically when present, and the path is practical on CPU too (the "
         "build venv decoded the 300 clips in about 70 s, scored the test split in 10 s and ran the eight epochs in about 60 s)."
     ),
     "byod": (
-        "After the tutorial workflow completes, set `USE_BYOD = True` in Section 4 and re-run from that cell to upload one zip "
-        "of clips (AVI, MP4, MOV, MKV, WebM, GIF or WebP; at least 8 frames each) plus a `labels.csv` (`file`, `label`, optional "
-        "`id` and `source`; one row per clip, at least sixteen clips of at least two labels with at least two clips each). The "
+        "After the tutorial workflow completes, set `USE_BYOD = True` in Section 4 and either set `BYOD_PATH` to a zip or folder "
+        "in the runtime (Colab, Kaggle or Jupyter) or leave it empty to upload one zip in Colab, then choose **Run after** from "
+        "that cell (it first puts the model back to the pinned base) to supply clips (AVI, MP4, MOV, MKV, WebM, GIF or WebP; at least 8 frames each) plus a `labels.csv` (`file`, `label`, optional "
+        "`id` and `source`; one row per clip — at least **24 clips for two labels** (12 per label), 27 for three, 24 for four "
+        "(`min_byod_records(n_labels)`); a `source` keeps all its clips, of every label, in one split). The "
         "records pass through the same validation, source-disjoint split, baselines, fine-tuning, held-out evaluation, "
         "artifact export and reload-parity cells as the HMDB51 sample. Uploaded files stay inside this runtime. BYOD is "
         "optional and never part of the default path."
@@ -100,6 +117,13 @@ TEMPLATE = {
         "processor or the model is constructed. The pipeline runs in **float32 on every device**: the adapter is trained in "
         "float32 and overlays without a cast, and CPU, Tesla-class and consumer GPUs then run the same arithmetic."
     ),
+    "guided": {
+        "opening": [
+            (
+                "**Who this notebook is for.** A learner who knows basic Python, has used Colab or Jupyter, and wants to see how a pretrained video–text model is adapted to a closed label set with a small labelled clip set, and how to read the result honestly — including what the pre-training already covered. No prior experience with video models or fine-tuning is assumed; each term is explained where it first matters and again in the **Glossary** at the end. CPU is adequate; a GPU is faster.\n\n**Input → Model → Output.**\n\n| | Ranking a clip | Bounded fine-tuning |\n|---|---|---|\n| Input | one clip of 8 frames and 2–32 free-text class names | labelled clips: 181 training and 53 validation HMDB51 clips in the sample, split by source video |\n| Model | X-CLIP base/32: a CLIP frame encoder with cross-frame attention, a frame-integration transformer, a text encoder and a prompt generator | the fusion head (10.2 M parameters) trained with cross-entropy over the label set on cached tower features; validation top-1 chooses the epoch |\n| Output | a ranking of the names with a softmax over them — relative, not calibrated | a safetensors adapter, and held-out top-1 / top-3, macro recall and macro F1 beside two baselines |\n\n**How to use this notebook.** Choose a runtime (CPU works; a GPU is faster), then **Runtime → Run all**. Run all completes in one pass: Section 1 installs nothing into the notebook's own Python, so no restart is needed. Sections 1–3 are **infrastructure** — the isolated environment, the carried package and the model snapshot — and their cells are collapsed; you may run them without studying them. The learning path starts in Section 4. Form fields (`# @param`) are the only values meant to be edited, and the defaults reproduce the recorded run. Before each principal result the notebook asks you to **Predict**; after it come **What to notice** and a collapsible **Check your reasoning** with a worked answer that names the run it quotes — the Kaggle T4 release run of 21 September 2026. Section 10 is a **change-one-thing experiment**, off by default. **Troubleshooting**, a **Glossary** and a **Conclusion** template are at the end. Writing your predictions down is optional.\n\n**Roadmap:** 1–3 infrastructure → 4 HMDB51 clips and a source-grouped split *(evaluation practice)* → 5 ranking drawn clips through the inference contract *(core concept: a softmax over your labels)* → 6 baselines and the pre-trained model, with its Kinetics-400 overlap *(evaluation practice)* → 7 fine-tuning the fusion head *(core concept)* → 8 held-out evaluation → 9 clips, drawings, export and reload *(engineering)* → 10 change one thing (optional) → conclude."
+            )
+        ]
+    },
     "learning_objectives": (
         "install the pinned runtime; read what the carried package guarantees; stage and digest-verify the immutable "
         "upstream snapshot; fetch a digest-pinned labelled clip set, decode it into 8-frame clips, validate it and split it "
@@ -119,7 +143,8 @@ TEMPLATE = {
         "actions stand in for your videos. The repository exposes none of these."
     ),
     "prerequisites": [
-        "- **Runtime:** a fresh supported runtime (Google Colab or Kaggle, Python 3.12; CPU or CUDA). The default path uses CUDA automatically when present. The vision tower runs `EVAL_BATCH_SIZE` clips (8 × 8 frames) per forward and the build record measured 3 s to score 66 clips and 12 s for the eight epochs (caching the tower features for 181 + 53 clips took 6 s) on a Tesla T4, about 2 minutes of cell time for the whole path including the pinned install and the downloads; the build venv's CPU ran the same path in a few minutes. The pinned `torch==2.14.0` install, the 786 MB checkpoint and the 113 MB row group are the large downloads of the run.",
+        "- **Learner:** basic Python and Colab or Jupyter familiarity; no prior experience with video models or fine-tuning. The notebook explains cross-frame attention, the frame-integration transformer, the prompt generator, the frozen-tower cache, top-k accuracy, macro recall and source grouping where they are first used; the Glossary repeats them.",
+        "- **Runtime:** a fresh supported **Linux x86_64** runtime (Google Colab, Kaggle or Linux Jupyter; CPU or CUDA). Section 1 builds its own Python 3.12.12 environment from a hash-locked list of manylinux wheels (PyAV included), so the kernel's own Python version does not matter and nothing is installed into it. The default path uses CUDA automatically when present. The vision tower runs `EVAL_BATCH_SIZE` clips (8 × 8 frames) per forward and the build record measured 3 s to score 66 clips and 12 s for the eight epochs (caching the tower features for 181 + 53 clips took 6 s) on a Tesla T4, about 2 minutes of cell time for the whole path including the pinned install and the downloads; the build venv's CPU ran the same path in a few minutes. The pinned `torch==2.14.0` install, the 786 MB checkpoint and the 113 MB row group are the large downloads of the run.",
         "- **Knowledge:** basic Python, NumPy and PIL; what a contrastive video–text model scores and why a softmax over a label set you chose is a ranking and not a probability; what top-1 accuracy, macro recall and macro F1 measure on a closed label set and why 66 clips give no dispersion; why clips cut from one source video must stay in one split.",
         "- **Data contract:** records are `{id, frames, label}` — `frames` exactly `NUM_FRAMES` (8) PIL frames of one size with sides within 16..4,096 px (a longer clip is subsampled uniformly by `sample_frames`; a container file is decoded by `decode_clip`), `label` one of the closed label set (normalised like the candidate names: stripped, lower-cased, trailing full stop removed), and an optional `source` naming the video the clip was cut from. Ids match `[A-Za-z0-9_.:-]{1,64}` and are unique; a dataset needs 16..5,000 records, at least two labels and at least two clips per label; splitting de-duplicates by decoded pixels and keeps every clip of one source in one split. BYOD accepts one zip (or directory) of clips plus a `labels.csv` in the layout named above.",
         "- **Validation is structural, not semantic:** every clip is decoded and every label checked against the set, but nothing checks that a label describes its clip — a mislabelled set is fine-tuned on without complaint.",
@@ -143,7 +168,14 @@ TEMPLATE = {
                 "`outputs/{stem}_train.csv`.\n\n"
                 "Look for: 300 clips of ten labels, three digests, and four refusal probes — a duplicate id, a label outside "
                 "the set, a clip with three frames, and a dataset too small to use — each rejected before the model does "
-                "anything."
+                "anything.\n\n"
+                "*Evaluation practice.* **Bring your own data (optional):** set `USE_BYOD = True` and either `BYOD_PATH` (a zip or "
+                "a folder holding `labels.csv` and the clips, as a path in this runtime — this works on Colab, Kaggle and "
+                "Jupyter) or leave `BYOD_PATH` empty to upload exactly one zip through the Colab dialog; then choose **Run after** "
+                "from this cell. This cell first puts the model back to the pinned base, so Section 6 scores the pre-trained "
+                "head — also after a `SPLIT_SEED` change, when clips the adapted head trained on could land in the test split. "
+                "The effective minimum is 24 clips for two labels.\n\n"
+                "**Predict before running:** several HMDB51 clips are cut from one film. What would a split by clip measure?"
             ),
             "code": (
                 "import hashlib\n"
@@ -152,20 +184,41 @@ TEMPLATE = {
                 "import numpy as np\n"
                 "from PIL import Image, ImageDraw, ImageFont\n\n"
                 "USE_BYOD = False  # @param {{type:\"boolean\"}}\n"
+                "BYOD_PATH = ''  # @param {{type:\"string\"}}\n"
                 "SPLIT_SEED = 42  # @param {{type:\"integer\"}}\n\n"
                 "os.makedirs('outputs', exist_ok=True)\n"
+                "# A re-run after Section 7 (BYOD, a new split or new phrasing): Section 6 and Section 7's epoch 0 must read the pinned base.\n"
+                "had_adapter = pipe.adapter is not None\n"
+                "restored_tensors = pipe.restore_base()\n"
+                "if had_adapter or restored_tensors:\n"
+                "    print({{'restored_pinned_base': len(restored_tensors), 'note': 'the fine-tuned fusion head was put back to the checkpoint; Sections 5-7 start from it again'}})\n"
                 "if USE_BYOD:\n"
-                "    from google.colab import files\n"
-                "    uploaded = files.upload()\n"
-                "    file_name, payload = next(iter(uploaded.items()))\n"
-                "    byod_zip = Path('work') / 'byod.zip'\n"
-                "    byod_zip.parent.mkdir(parents=True, exist_ok=True)\n"
-                "    byod_zip.write_bytes(payload)\n"
+                "    if BYOD_PATH.strip():\n"
+                "        byod_zip = Path(BYOD_PATH.strip()).expanduser()\n"
+                "        if not byod_zip.exists():\n"
+                "            raise FileNotFoundError(f'BYOD_PATH {{BYOD_PATH!r}} does not exist (relative paths start at {{Path.cwd()}}): give a .zip or a folder holding labels.csv and the clips.')\n"
+                "        file_name = byod_zip.name\n"
+                "    else:\n"
+                "        try:\n"
+                "            from google.colab import files\n"
+                "        except ImportError:\n"
+                "            raise RuntimeError('USE_BYOD is True but BYOD_PATH is empty, and the upload dialog exists only in Google Colab: on Kaggle or Jupyter put the zip (or folder) in the runtime and set BYOD_PATH to its path.') from None\n"
+                "        uploaded = files.upload() or {{}}\n"
+                "        if len(uploaded) != 1:\n"
+                "            raise ValueError(f'Upload exactly one .zip file (received {{len(uploaded)}}; a cancelled dialog sends none): run this cell again.')\n"
+                "        file_name, payload = next(iter(uploaded.items()))\n"
+                "        if not file_name.lower().endswith('.zip'):\n"
+                "            raise ValueError(f'{{file_name}}: upload one .zip holding labels.csv and the clips.')\n"
+                "        byod_zip = Path('work') / 'byod.zip'\n"
+                "        byod_zip.parent.mkdir(parents=True, exist_ok=True)\n"
+                "        byod_zip.write_bytes(payload)\n"
                 "    records = load_byod_dataset(byod_zip)\n"
                 "    LABELS = validate_dataset(records)['labels']\n"
                 "    splits = split_dataset(records, seed=SPLIT_SEED)\n"
                 "    data_source = 'BYOD (' + file_name + ')'\n"
-                "    raw_rows = {{'byod': len(records)}}\n"
+                "    raw_rows = {{'byod': len(records), 'labels': len(LABELS), 'effective_minimum': min_byod_records(len(LABELS))['total']}}\n"
+                "    if len(splits['test']) < 5 * len(LABELS):\n"
+                "        print({{'caution': f\"only {{len(splits['test'])}} held-out test clips for {{len(LABELS)}} labels (fewer than 5 per label): rates move in large steps; add clips before reading them\"}})\n"
                 "else:\n"
                 "    t0 = time.perf_counter()\n"
                 "    corpus_groups = fetch_corpus(cache_dir='weights/hmdb51')\n"
@@ -211,7 +264,15 @@ TEMPLATE = {
         },
         {
             "md": (
+                "**What to notice:** 300 clips of ten labels, 181 / 53 / 66, `sources` per split, the three digests and the four refusals.\n\n<details><summary>Check your reasoning</summary>How well the model recognises a film it has already seen: clips cut from one source share its scene, lighting and actor. The sample's split keeps a source together *per action*, so one film can still contribute different actions to different splits; BYOD's `split_dataset` keeps a source together across labels.</details>"
+            ),
+        },
+        {
+            "md": (
                 "## 5. Rank five drawn clips through the inference contract\n\n"
+                "*Core concept.* The probabilities are a softmax over the names you supplied: they always sum to one, so a set "
+                "that omits the true class still gets a confident top-1. **Predict before running:** on simple cartoon "
+                "clips, will the human-action model rank the right motion first?\n\n"
                 "The inference contract is exercised as the inference-only tutorial exercised it: five deterministic 8-frame "
                 "clips at 320 × 240 drawn with Pillow — a ball rolling right, a ball bouncing, a square growing, a sun setting, "
                 "a ball standing still — with the five class names that describe them; a different clip family from the "
@@ -293,6 +354,11 @@ TEMPLATE = {
         },
         {
             "md": (
+                "**What to notice:** each drawn clip's top-1 and its probability, and the drawn-label top-1 rate.\n\n<details><summary>Check your reasoning</summary>No. In the Kaggle T4 release run the pre-trained model ranked `a ball standing still` first for all five drawn clips (probabilities 0.43–0.69), a drawn-label top-1 of 0.20. A softmax over five names you chose will always name one of them, confidently; the drawings are plumbing evidence, not a measurement.</details>"
+            ),
+        },
+        {
+            "md": (
                 "## 6. Baselines and the frozen model on the test clips\n\n"
                 "Two non-adapted baselines frame the adaptation, each scored by `classification_metrics` (carried in "
                 "`metrics.py`): **top-1 accuracy** (the highest-scoring name is the reference label), **top-3 accuracy** (the "
@@ -301,10 +367,15 @@ TEMPLATE = {
                 "guesses uniformly: top-1 = 1 / 10 by construction. The **majority-label** baseline predicts the most frequent "
                 "training label for every clip: what the label distribution buys without looking at the frames. The **frozen "
                 "model** is scored by `pipe.evaluate`, which ranks the closed label set for every clip in batches of "
-                "`EVAL_BATCH_SIZE` and returns the rankings with the rates. Expect the frozen model **well above both "
-                "baselines** — it is a zero-shot action classifier and these are human actions: the build record measured "
-                "**0.803** top-1 on the 66 held-out clips, with the per-label recall showing which classes it "
-                "misses (`chewing` 0.43, `clapping hands` 0.50, `diving into water` 0.67); read four rankings under their references."
+                "`EVAL_BATCH_SIZE` and returns the rankings with the rates. Call it **the pre-trained model scored on our label "
+                "phrasing** rather than zero-shot: X-CLIP was trained fully supervised on Kinetics-400, and most of these ten "
+                "actions are in that training vocabulary. Four labels have an exact or near-exact Kinetics-400 class "
+                "(`brushing hair`, `doing a cartwheel`, `clapping hands`, `dribbling a basketball`), four have related classes "
+                "(catching or throwing a ball, several kinds of climbing and diving, sword fighting), and only `chewing` and "
+                "`climbing stairs` have none. HMDB51 and Kinetics both draw on web video, so overlap at the video level cannot "
+                "be ruled out either. **What to look for:** the per-label recall against that overlap.\n\n"
+                "**Predict before running:** which labels will the pre-trained model find hardest — those with a Kinetics-400 "
+                "counterpart or those without?"
             ),
             "code": (
                 "METRICS = ('top1_accuracy', 'top3_accuracy', 'macro_recall', 'macro_f1')\n\n"
@@ -318,7 +389,14 @@ TEMPLATE = {
                 "print({{'per_label_recall': {{label: round(row['recall'], 2) for label, row in frozen_test['per_label'].items()}}}})\n"
                 "print({{'definitions': frozen_test['definitions']}})\n"
                 "for record, ranking, probability in zip(test_records[:4], frozen_test['rankings'][:4], frozen_test['top1_probability'][:4], strict=True):\n"
-                "    print({{'id': record['id'], 'reference': record['label'], 'frozen_top3': ranking[:3], 'top1_probability': round(probability, 3)}})"
+                "    print({{'id': record['id'], 'reference': record['label'], 'frozen_top3': ranking[:3], 'top1_probability': round(probability, 3)}})\n"
+                "frozen_verdict = 'pre-trained model above both baselines' if frozen_test['top1_accuracy'] > max(baseline_chance['top1_accuracy'], baseline_majority['top1_accuracy']) else 'a baseline matches or beats the pre-trained model'\n"
+                "print({{'frozen_vs_baselines': frozen_verdict}})"
+            ),
+        },
+        {
+            "md": (
+                "**What to notice:** the two baselines, the frozen top-1 / top-3 / macro F1, and the per-label recall.\n\n<details><summary>Check your reasoning</summary>In the Kaggle T4 release run (21 September 2026) the pre-trained model ranked the right label first for 0.803 of the 66 test clips (top-3 0.939, macro F1 0.792), against chance at 0.100 and the majority label at 0.091 — below chance because the training split's most frequent label is under-represented in the test split. Its weakest labels were `chewing` (0.43), which has no Kinetics-400 counterpart, `clapping hands` (0.50), `diving into water` (0.67) and `drawing a sword` (0.71). Much of the 0.803 is recognition of classes the model was trained on, not transfer.</details>"
             ),
         },
         {
@@ -339,7 +417,12 @@ TEMPLATE = {
                 "Watch the validation top-1 rise from 0.811 to 0.962 (epoch 2 in the build "
                 "record) while the loss drops from about 0.44 to 0.00: the adapted head ranks 60 of 66 held-out clips first (frozen 53), and the reference is in the top three for 65. The learning rate is "
                 "deliberately small — a head this size memorises 181 clips within an epoch or two at 1e-4, and the validation "
-                "curve is then flat from the first epoch."
+                "curve is then flat from the first epoch.\n\n"
+                "*Core concept.* Every call to `pipe.adapt` starts from the **pinned base**: head tensors an earlier call (or an "
+                "artifact) changed are put back first, so epoch 0 is always the pre-trained model and re-running Sections 7–8 "
+                "with a changed field repeats the comparison validly. To compare a change side by side without replacing the "
+                "default exports, use Section 10.\n\n"
+                "**Predict before running:** will validation keep the last epoch, or an early one?"
             ),
             "code": (
                 "EPOCHS = 8  # @param {{type:\"integer\"}}\n"
@@ -352,25 +435,37 @@ TEMPLATE = {
                 "    if 'note' in entry:\n"
                 "        row['note'] = entry['note']\n"
                 "    print(row)\n\n\n"
+                "settings = {{'epochs': EPOCHS, 'lr': LEARNING_RATE, 'batch_size': BATCH_SIZE}}\n"
+                "if settings != {{'epochs': 8, 'lr': 1e-5, 'batch_size': 16}}:\n"
+                "    print({{'note': 'changed settings: this run starts again from the pinned base and replaces the default results of Sections 8-9; Section 10 compares a change side by side instead', 'settings': settings}})\n"
                 "t0 = time.perf_counter()\n"
                 "adapt_result = pipe.adapt(train_records, val_records, LABELS, epochs=EPOCHS, lr=LEARNING_RATE, batch_size=BATCH_SIZE, progress=report)\n"
                 "adapt_seconds = round(time.perf_counter() - t0, 1)\n"
-                "print({{'labels': adapt_result['labels'], 'trainable_parameters': adapt_result['n_trainable'], 'total_parameters': adapt_result['n_total'], 'best_epoch': adapt_result['best_epoch'], 'selection': adapt_result['selection'], 'objective': adapt_result['objective'], 'cache_seconds': adapt_result['cache_seconds'], 'seconds': adapt_seconds}})"
+                "print({{'labels': adapt_result['labels'], 'trainable_parameters': adapt_result['n_trainable'], 'total_parameters': adapt_result['n_total'], 'best_epoch': adapt_result['best_epoch'], 'selection': adapt_result['selection'], 'objective': adapt_result['objective'], 'cache_seconds': adapt_result['cache_seconds'], 'started_from': adapt_result['started_from'], 'seconds': adapt_seconds}})"
+            ),
+        },
+        {
+            "md": (
+                '**What to notice:** the validation top-1 per epoch, the training loss, and `best_epoch`.\n\n<details><summary>Check your reasoning</summary>An early one: in the release run validation top-1 rose from 0.811 (epoch 0, the pre-trained model) to 0.962 and epoch 2 was kept, while the training loss fell towards zero — the head was memorising 181 clips. The earliest best epoch wins ties, so later epochs that only fit the training clips better are not chosen.</details>'
             ),
         },
         {
             "md": (
                 "## 8. Held-out evaluation\n\n"
-                "The test clips were never used for training or epoch selection, and no clip and no source video appears in "
-                "two splits. The adapted model is scored exactly as the frozen model was in Section 6 and the four systems are "
+                "The test clips were never used for training or epoch selection; no clip appears in two splits, and no source "
+                "video appears in two splits *for the same action* (the sample's split key is per action). The adapted model is scored exactly as the frozen model was in Section 6 and the four systems are "
                 "put side by side. Read it in this order: **top-1 accuracy** first (the measure the epoch was selected on — the "
                 "build record measured 0.803 → **0.909**), then **macro F1** (0.792 → "
                 "0.905), then **top-3 accuracy** (0.939 → 0.985), then the per-label recall to "
-                "see which classes moved (`chewing` 0.43 → 0.86, `diving into water` 0.67 → 1.00, `drawing a sword` 0.71 → 1.00; down: `dribbling a basketball` 0.71 → 0.57). The cell asserts the adapted top-1 is at least the frozen one "
-                "and above chance. Sixty-six clips from one seeded split give **no dispersion estimate** — one clip is 1.5 "
+                "see which classes moved (`chewing` 0.43 → 0.86, `diving into water` 0.67 → 1.00, `drawing a sword` 0.71 → 1.00; down: `dribbling a basketball` 0.71 → 0.57). The cell records verdicts — "
+                "`improved`, `no gain` or `worse` against the frozen model, and whether the adapted model beats both baselines — "
+                "instead of asserting them: the epoch is chosen on validation, so the test split can still move the other way, "
+                "and export, reload and the result still run. Sixty-six clips from one seeded split give **no dispersion estimate** — one clip is 1.5 "
                 "points — so the deltas are sample-sanity evidence that the adaptation contract works, not a benchmark, and "
                 "a result on ten HMDB51 actions says nothing about other actions, other cameras or your videos until you "
-                "measure them."
+                "measure them.\n\n"
+                "**Predict before running:** which labels will fine-tuning help most — those the pre-trained model already "
+                "handled, or those it missed?"
             ),
             "code": (
                 "adapted_test = pipe.evaluate(test_records, LABELS, batch_size=EVAL_BATCH_SIZE)\n"
@@ -378,6 +473,10 @@ TEMPLATE = {
                 "comparison = {{metric: {{'chance': round(baseline_chance[metric], 3), 'majority': round(baseline_majority[metric], 3), 'frozen': round(frozen_test[metric], 3), 'adapted': round(adapted_test[metric], 3)}} for metric in METRICS}}\n"
                 "comparison['delta_vs_frozen'] = {{metric: round(adapted_test[metric] - frozen_test[metric], 3) for metric in METRICS}}\n"
                 "comparison['per_label_recall'] = {{label: {{'frozen': round(frozen_test['per_label'][label]['recall'], 2), 'adapted': round(adapted_test['per_label'][label]['recall'], 2), 'support': adapted_test['per_label'][label]['support']}} for label in LABELS}}\n"
+                "def direction(new, old):\n"
+                "    return 'improved' if new > old else ('no gain' if new == old else 'worse')\n"
+                "# Reported verdicts, not assertions: a fine-tune that does not help on the test split is a result to record.\n"
+                "comparison['verdicts'] = {{'frozen_vs_baselines': frozen_verdict, **{{f'adapted_vs_frozen_{{metric}}': direction(adapted_test[metric], frozen_test[metric]) for metric in METRICS}}, 'adapted_above_both_baselines': bool(adapted_test['top1_accuracy'] > max(baseline_chance['top1_accuracy'], baseline_majority['top1_accuracy']))}}\n"
                 "for key, row in comparison.items():\n"
                 "    print({{key: row}})\n"
                 "evaluation_report_payload = {{\n"
@@ -398,9 +497,13 @@ TEMPLATE = {
                 "}}\n"
                 "with open('outputs/{stem}_evaluation_report.json', 'w', encoding='utf-8') as f:\n"
                 "    json.dump(evaluation_report_payload, f, indent=2, ensure_ascii=False)\n"
-                "assert adapted_test['top1_accuracy'] >= frozen_test['top1_accuracy']\n"
-                "assert adapted_test['top1_accuracy'] > baseline_chance['top1_accuracy']\n"
+                "print({{'verdicts': comparison['verdicts']}})\n"
                 "print({{'report': 'outputs/{stem}_evaluation_report.json', 'adapted_beats_both_baselines': adapted_test['top1_accuracy'] > max(baseline_chance['top1_accuracy'], baseline_majority['top1_accuracy'])}})"
+            ),
+        },
+        {
+            "md": (
+                '**What to notice:** `delta_vs_frozen`, the per-label recall rows and the `verdicts`.\n\n<details><summary>Check your reasoning</summary>Mostly the ones it missed. In the release run top-1 rose from 0.803 to 0.909 (macro F1 0.792 → 0.905, top-3 0.939 → 0.985). The gain came from four labels — `chewing` 0.43 → 0.86, `diving into water` 0.67 → 1.00, `drawing a sword` 0.71 → 1.00, `clapping hands` 0.50 → 0.67 — while `dribbling a basketball` lost one clip (0.71 → 0.57). On 66 clips one clip is 1.5 points, and `chewing`, the label with no Kinetics-400 counterpart, is where tuning had most to add.</details>'
             ),
         },
         {
@@ -446,7 +549,7 @@ TEMPLATE = {
                 "after = [[p['label'] for p in item['predictions']] for item in reloaded.classify_batch([r['frames'] for r in test_records[:8]], LABELS)]\n"
                 "parity = {{'identical_rankings': sum(a == b for a, b in zip(before, after, strict=True)), 'of': len(before)}}\n"
                 "print({{'reload_parity': parity, 'reloaded_best_epoch': reloaded.adapter['best_epoch']}})\n"
-                "assert parity['identical_rankings'] == parity['of']\n\n"
+                "assert parity['identical_rankings'] == parity['of']  # a contract check: the artifact reloads ranking-for-ranking\n\n"
                 "result_payload = {{\n"
                 "    'notebook_source': NOTEBOOK_SOURCE,\n"
                 "    'repository_revision': NOTEBOOK_SOURCE['repository_revision'],\n"
@@ -469,11 +572,70 @@ TEMPLATE = {
                 "print(sorted(os.listdir('outputs')))"
             ),
         },
+        {
+            "md": (
+                "**What to notice:** the six panels in `outputs/{stem}_examples/`, the drawn clips' rankings before and after, and the reload parity line.\n\n<details><summary>Check your reasoning</summary>In the release run the drawn clips stayed almost all `a ball standing still` before and after adaptation — the tuned head was never shown cartoons — with one ranking changed. Reload parity held: eight of eight identical rankings.</details>"
+            ),
+        },
+        {
+            "md": (
+                "## 10. Change one thing: a ten-times-higher learning rate (optional)\n\n"
+                "*Evaluation practice.* A **Predict → Change one thing → Run → Observe → Explain** activity, off by default so "
+                "Run all is unaffected. Set `RUN_EXPERIMENT = True`, change **one** field — by default the learning rate goes from "
+                "1e-5 to 1e-4 — and run this cell after Sections 4–9. The experiment loads its **own** pipeline from the verified "
+                "snapshot, so it starts from the checkpoint and never touches the default `pipe`; it writes only to "
+                "`outputs/{stem}_experiment/`, prints the default and the changed run side by side (epoch 0 must match), and "
+                "checks that the default exports are byte-identical afterwards.\n\n"
+                "**Predict:** at 1e-4, at which epoch will validation top-1 peak?"
+            ),
+            "code": (
+                "RUN_EXPERIMENT = False  # @param {{type:\"boolean\"}}\n"
+                "EXPERIMENT_LEARNING_RATE = 1e-4  # @param {{type:\"number\"}}\n"
+                "EXPERIMENT_EPOCHS = 8  # @param {{type:\"integer\"}}\n\n"
+                "if not RUN_EXPERIMENT:\n"
+                "    print({{'experiment': 'skipped (RUN_EXPERIMENT = False); the default path above is complete'}})\n"
+                "else:\n"
+                "    canonical_files = {{'adapter': artifact_dir / 'adapter.safetensors', 'evaluation_report': Path('outputs/{stem}_evaluation_report.json'), 'result': Path('outputs/{stem}_result.json')}}\n"
+                "    canonical = {{name: hashlib.sha256(path.read_bytes()).hexdigest() for name, path in canonical_files.items()}}\n"
+                "    experiment_dir = Path('outputs/{stem}_experiment')\n"
+                "    shutil.rmtree(experiment_dir, ignore_errors=True)\n"
+                "    experiment_dir.mkdir(parents=True)\n"
+                "    # Its own pipeline from the verified snapshot: the experiment starts from the checkpoint and the default pipe is untouched.\n"
+                "    experiment_pipe = XClipVideoClassificationPipeline.from_pretrained(weights_dir=WEIGHTS_DIR, device=pipe.device)\n"
+                "    experiment_result = experiment_pipe.adapt(train_records, val_records, LABELS, epochs=EXPERIMENT_EPOCHS, lr=EXPERIMENT_LEARNING_RATE, batch_size=BATCH_SIZE, progress=report)\n"
+                "    experiment_test = experiment_pipe.evaluate(test_records, LABELS, batch_size=EVAL_BATCH_SIZE)\n"
+                "    side_by_side = {{\n"
+                "        'settings': {{'default': {{'lr': adapt_result['lr'], 'epochs': adapt_result['epochs']}}, 'experiment': {{'lr': EXPERIMENT_LEARNING_RATE, 'epochs': EXPERIMENT_EPOCHS}}}},\n"
+                "        'validation_top1_by_epoch': {{'default': [round((h['val'] or {{}}).get('top1_accuracy', float('nan')), 3) for h in adapt_result['history']], 'experiment': [round((h['val'] or {{}}).get('top1_accuracy', float('nan')), 3) for h in experiment_result['history']]}},\n"
+                "        'best_epoch': {{'default': adapt_result['best_epoch'], 'experiment': experiment_result['best_epoch']}},\n"
+                "        'test': {{metric: {{'frozen': round(frozen_test[metric], 3), 'default': round(adapted_test[metric], 3), 'experiment': round(experiment_test[metric], 3)}} for metric in METRICS}},\n"
+                "    }}\n"
+                "    for key, row in side_by_side.items():\n"
+                "        print({{key: row}})\n"
+                "    with open(experiment_dir / 'experiment_report.json', 'w', encoding='utf-8') as handle:\n"
+                "        json.dump({{'side_by_side': side_by_side, 'history': experiment_result['history']}}, handle, indent=2, ensure_ascii=False, default=str)\n"
+                "    unchanged = {{name: hashlib.sha256(path.read_bytes()).hexdigest() == canonical[name] for name, path in canonical_files.items()}}\n"
+                "    if not all(unchanged.values()):\n"
+                "        raise RuntimeError(f'the experiment changed a default export: {{unchanged}}')\n"
+                "    print({{'default_exports_unchanged': unchanged, 'experiment_outputs': str(experiment_dir)}})\n"
+                "    del experiment_pipe"
+            ),
+        },
+        {
+            "md": (
+                "**Observe → Explain.** Compare the two validation curves (epoch 0 must be equal) and the `test` rows.\n\n"
+                "<details><summary>Check your reasoning</summary>The build record found that at 1e-4 a head this size memorises "
+                "181 clips within an epoch or two, so validation top-1 peaks at epoch 1 and the curve is then flat; the earliest "
+                "best epoch is kept. A faster climb is not a better model: compare the test rows, and read a difference of one "
+                "or two clips (1.5 points each) as noise. No experiment run is recorded on the release runtime.</details>"
+            ),
+        },
     ],
     "closing": (
         "## Interpretation and limits\n\n"
-        "A zero-shot video–text model trained on Kinetics-400 already ranks the right one of ten HMDB51 actions first for "
-        "0.803 of the held-out clips; a bounded fine-tuning of its fusion head on 181 clips moves that to "
+        "A video–text model trained on Kinetics-400 — whose vocabulary already covers most of these ten actions — ranks the "
+        "right one of ten HMDB51 actions first for 0.803 of the held-out clips in the Kaggle T4 release run (21 September "
+        "2026); a bounded fine-tuning of its fusion head on 181 clips moves that to "
         "0.909 top-1 and 0.905 macro F1 in the build record, with a 41 MB adapter that reloads "
         "ranking-for-ranking. That is the claim: the adaptation contract works end to end on a closed label set with a real "
         "labelled set, and the numbers it produces are read as top-1 / top-3 accuracy, macro recall and macro F1 against two "
@@ -499,17 +661,40 @@ TEMPLATE = {
         "the frozen model on a source-disjoint split, and emit the shown machine-readable artifacts — without the "
         "repository being reachable. It does **not** establish benchmark superiority, classification quality on any other "
         "action set or video domain, ranking quality on other label sets after adaptation, or production fitness.\n\n"
-        "**Optional experiments (they do not affect the default path):** raise `EPOCHS` and watch the validation top-1 pick "
-        "the epoch; set `LEARNING_RATE` to `1e-4` and read a curve that peaks in the first epoch and then flattens as the head "
-        "memorises the training clips; change `SPLIT_SEED` and read how much 66 clips move; edit `SAMPLE_CLASS_TEXT`'s "
-        "phrasing in the carried module and rerun from Section 4 to see how much the frozen model depends on the wording of "
-        "the label; or bring your own labelled clips through BYOD and read the two baselines before the adapted number.\n\n"
-        "**Troubleshooting.** `RuntimeError: Core dependencies changed while older modules were loaded` in Section 1: the "
-        "pinned install replaced a package the runtime had pre-imported — restart the runtime and rerun from the top. "
-        "`FileNotFoundError: snapshot file missing` or a `sha256`/`size` `ValueError` in Section 3: a staged file is "
-        "incomplete or altered — delete it from `weights/xclip-base-patch32/` and rerun Section 3. A `sha256` `ValueError` "
-        "naming the parquet row group in Section 4: the cached `weights/hmdb51/test-rg0.parquet` is incomplete — delete it "
-        "and rerun Section 4.\n\n"
+        "**Optional experiments (off by default; each names its field and what to run):** Section 10 runs a ten-times-higher "
+        "learning rate in its own pipeline and prints it beside the default run — change `EXPERIMENT_LEARNING_RATE` or "
+        "`EXPERIMENT_EPOCHS` there and run that cell again. Changing `EPOCHS` or `LEARNING_RATE` and choosing **Run after** from "
+        "Section 7, or `SPLIT_SEED` and **Run after** from Section 4, also starts from the pinned base — every `adapt` and "
+        "Section 4 put it back first — but replaces the default results and exports. Editing `SAMPLE_CLASS_TEXT`'s phrasing "
+        "in the carried module and running from Section 4 shows how much the pre-trained model depends on the wording of a "
+        "label. BYOD: `USE_BYOD` and `BYOD_PATH` in Section 4, then **Run after** from Section 4, and read the two baselines "
+        "before the adapted number.\n\n"
+        "## Troubleshooting\n\n"
+'- **Section 1 stops with "This notebook needs a Linux x86_64 runtime"** — you are on Windows, macOS or an ARM machine. Use Google Colab, Kaggle or a Linux x86_64 Jupyter server.\n- **The uv wheel fails its size/SHA-256 check, or a download in Section 1 times out** — run Section 1 again; a complete environment is reused, an incomplete one is finished. If it repeats, the network is blocking or altering `files.pythonhosted.org` or `pypi.org`.\n- **"The isolated environment\'s Python process exited"** — usually out of memory. Restart the session and choose **Run all**; leave the optional experiment off on a small runtime.\n- **You re-ran Section 1 on its own** — nothing is lost: it keeps the running worker and every variable, so the cells after it keep working. After a session restart, run from the top.\n- **Section 3 reports a size or SHA-256 mismatch, or cannot reach the Hub** — the message names the file. Delete it from the snapshot folder Section 3 prints and run Section 3 again; the snapshot comes from `huggingface.co`.\n- **Section 4 names the parquet row group in a `sha256` error** — the cached `weights/hmdb51/test-rg0.parquet` is incomplete; delete it and run Section 4 again (the default path needs `huggingface.co`).\n- **Out of memory** — lower `BATCH_SIZE` in Section 7, or restart the session and choose **Run all**; leave Section 10 off on a small runtime.\n- **BYOD: "BYOD_PATH … does not exist"** — the path is relative to the working directory printed in the message.\n- **BYOD: "the upload dialog exists only in Google Colab"** — on Kaggle or Jupyter, put the zip in the runtime (or attach it as a dataset) and set `BYOD_PATH`.\n- **BYOD: "Upload exactly one .zip file"** — the dialog was cancelled or several files were chosen; run the cell again.\n- **BYOD: "labels.csv line N (file …): names a missing clip"** — fix the `file` column of that row, or add the clip to the zip.\n- **BYOD: "… not a decodable clip of at least 8 frames"** — the file on that line is corrupt, too short, or in a container PyAV cannot read.\n- **BYOD: "the train split holds …" or "the … split holds no clip of …"** — add clips or sources; the message names the minimum for your label count.\n'
+        "## Glossary\n\n"
+        "- **Cross-frame attention** — each frame's encoder attends to the other frames, so motion informs every frame "
+        "embedding.\n"
+        "- **Frame-integration transformer** — a one-layer transformer that fuses the 8 frame embeddings into one video "
+        "embedding.\n"
+        "- **Prompt generator** — conditions the class-name embeddings on the clip's patch features.\n"
+        "- **Fusion head** — the integration transformer, the visual projections and the prompt generator: the only "
+        "trained part.\n"
+        "- **Frozen-tower cache** — the frozen towers' outputs computed once and reused, so each step runs only the head.\n"
+        "- **Top-k accuracy** — the reference label is among the k highest-ranked names.\n"
+        "- **Macro recall / macro F1** — the mean per-label recall or F1, so a never-predicted label costs a full share.\n"
+        "- **Source grouping** — clips cut from one source video stay in one split.\n"
+        "- **Kinetics-400 overlap** — labels whose action the model was trained on; the pre-trained score on them is not "
+        "zero-shot transfer.\n"
+        "- **Adapter / reload parity** — the trained tensors only (safetensors) overlaid on the pinned base; the reloaded "
+        "pipeline ranks identically.\n"
+        "- **BYOD** — bring your own data: your labelled clips through the same cells.\n\n"
+        "## Conclusion (your notes)\n\n"
+        "Optional — fill in from **your** run, not the recorded one:\n\n"
+        "- The task was ___ labels on ___ test clips from ___ sources.\n"
+        "- Labels with a Kinetics-400 counterpart: ___; without: ___.\n"
+        "- Pre-trained top-1 ___ (weakest label ___ at ___); chance ___, majority ___.\n"
+        "- After fine-tuning (epoch ___ kept): top-1 ___, macro F1 ___; labels that moved: ___.\n"
+        "- What I would need before claiming the fine-tune helps on my clips: ___ (for example labels outside Kinetics-400, more test clips, several seeds).\n\n"
         "## References\n\n"
         "- Repository README: https://github.com/kurtvalcorza/xclip-video-classification-pipeline/blob/main/README.md\n"
         "- Repository model card: https://github.com/kurtvalcorza/xclip-video-classification-pipeline/blob/main/MODEL_CARD.md\n"
@@ -518,6 +703,6 @@ TEMPLATE = {
         "- Upstream code: https://github.com/microsoft/VideoX/tree/master/X-CLIP\n"
         "- Expanding Language-Image Pretrained Models for General Video Recognition (Ni et al., ECCV 2022): https://arxiv.org/abs/2208.02816\n"
         "- HMDB51 (Serre Lab, CC BY 4.0): https://huggingface.co/datasets/Serrelab/hmdb51 — Kuehne, Jhuang, Garrote, Poggio, Serre, HMDB: A Large Video Database for Human Motion Recognition (ICCV 2011); parquet repack read here: https://huggingface.co/datasets/mteb/HMDB51\n"
-        "- DIMER Notebook Specification 2.0 and Model Card Specification 1.1 (fleet specs in the ml-worker repository)"
+        "- DIMER Notebook Specification 2.2 and Model Card Specification 1.1 (fleet specs in the ml-worker repository)"
     ),
 }

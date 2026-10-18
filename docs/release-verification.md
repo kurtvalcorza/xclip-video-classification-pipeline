@@ -140,6 +140,7 @@ A known-failing default path in the supported runtime blocks release (REL11).
 
 | Notebook | Commit / notebook blob | Date (UTC) | Executor | Outcome |
 |---|---|---|---|---|
+| `xclip_video_classification_colab.ipynb` (`E2E`) | `1bf9b91` / `0c9b1f0f` | 2026-10-18 | Colab CLI 0.7.4, fresh Colab Tesla T4 (CLI sequential execution, not a browser Run all; forms and uploads not exercised) | **PASSED** — 14/14 code cells, 0 errors, 390.5 s; **pre-registered evaluation of record** (REL13): fresh test (669 clips, 242 films): frozen top-1 0.786 (526/669) → selected adapted (lr 1e-5) 0.895 (599/669), paired difference **+0.109**, film-bootstrap 95% interval **[0.066, 0.151]**, McNemar 17 frozen-only vs 90 selected-only (exact p 3.5e-13, film-clustered p 3.1e-6; both descriptive) → **adapted helps**; evidence `docs/execution-evidence/2026-10-18-1bf9b91/` |
 | `xclip_video_classification_colab.ipynb` (`E2E`) | `81fc31a` (not on `main`; the same blob is on `main` via `79e91a2`) / `1e9956b7` | 2026-09-21 | Kaggle Tesla T4 (`kurtvalcorza/dimer-nb2-xclip-video-classification` v3; image `torch 2.10.0+cu128` / `transformers 5.0.0` before the pinned install, `torch 2.14.0+cu130` / `transformers 4.57.6` after, Python 3.12.13, `cuda:0`, float32) | **PASSED** — 11/11 code cells ok (1 restart after install cell); 21 files, 902 MB staged from the Hub into a clean cache; comparison {top1_accuracy: {chance: 0.1, majority: 0.091, frozen: 0.803, adapted: 0.909}, top3_accuracy: {chance: 0.3, majority: 0.288, frozen: 0.939, adapted: 0.985}, macro_recall: {chance: 0.1, majority: 0.1, frozen: 0.802, adapted: 0.91}, macro_f1: {chance: 0.1, majority: 0.017, frozen: 0.792, adapted: 0.905}, delta_vs_frozen: {top1_accuracy: 0.106, top3_accuracy: 0.045, macro_recall: 0.107, macro_f1: 0.112}, per_label_recall: {brushing hair: {frozen: 1, adapted: 1, support: 6}, doing a cartwheel: {frozen: 1, adapted: 1, support: 6}, catching a ball: {frozen: 1, adapted: 1, support: 7}, chewing: {frozen: 0.43, adapted: 0.86, support: 7}, clapping hands: {frozen: 0.5, adapted: 0.67, support: 6}, climbing: {frozen: 1, adapted: 1, support: 8}, climbing stairs: {frozen: 1, adapted: 1, support: 6}, diving into water: {frozen: 0.67, adapted: 1, support: 6}, drawing a sword: {frozen: 0.71, adapted: 1, support: 7}, dribbling a basketball: {frozen: 0.71, adapted: 0.57, support: 7}}}; drawing / scene / page check frozen vs adapted {frozen: [('a ball standing still', 0.69), ('a ball standing still', 0.51), ('a ball standing still', 0.43), ('a ball standing still', 0.46), ('a ball standing still', 0.57)], adapted: [('a ball standing still', 0.67), ('a ball standing still', 0.47), ('a ball bouncing up and down', 0.37), ('a ball standing still', 0.41), ('a ball standing still', 0.55)]}; reload parity {identical_rankings: 8, of: 8}; run summary and executed notebook archived under `.agent/backups/kaggle-e2e-2026-09-19/out/dimer-nb2-xclip-video-classification/v3/evidence/` in the workspace |
 | `xclip_video_classification_colab.ipynb` (`TASK-INFERENCE`, superseded) | `79b1285` / `51f0d714b933` | 2026-09-14 | Kaggle CPU (`kurtvalcorza/dimer-nb2-xclip-video-classification` v1) | PASSED — 8/8 code cells, 20 files, 790 MB staged, 212.9 s; evidence for the earlier inference-only notebook, not for the `E2E` blob |
 
@@ -152,6 +153,7 @@ stated runtime, not general estimates.
 
 | Date (UTC) | Commit / notebook blob | Executor | Path exercised | Wall | Outcome |
 |---|---|---|---|---|---|
+| 2026-10-18 (08:25:59 UTC start) | commit `1bf9b91` / blob `0c9b1f0f9300` (`NOTEBOOK_SOURCE.repository_revision` `3baea09`, equal to `metadata.dimer.generated_from.revision`; `3baea09..1bf9b91` regenerates the notebook and adds a validator marker; `module_sha256` `4e34e8b557c8…`, generator `build_notebook.py/2.5`, `notebook_spec` 2.5) | Colab CLI 0.7.4 sequential execution (`colab exec -f`), fresh Colab Tesla T4, session `suite-xclip-1bf9b91-2472`; isolated hash-locked uv environment (49 packages, CPython 3.12.12, built in 62 s; kernel Python 3.13.15) | Default pre-registered path, one pass, no restart: 14/14 code cells, 0 errors (4 carried-module cells print nothing); snapshot 9 files / 790,034,990 bytes digest-verified; split 181/53/66; grid 1e-5 / 5e-6 / 2e-5 all 51/53 on validation, frozen 43/53, **1e-5 kept** (epoch 2); exposed development test frozen 0.803 → adapted 0.909 (top-3 0.985, macro F1 0.905); `preregistered` True, `settings_differing` []; fresh test (669 clips, 242 films): frozen top-1 0.786 (526/669) → selected adapted (lr 1e-5) 0.895 (599/669), paired difference **+0.109**, film-bootstrap 95% interval **[0.066, 0.151]**, McNemar 17 frozen-only vs 90 selected-only (exact p 3.5e-13, film-clustered p 3.1e-6; both descriptive) → **adapted helps**; reload parity 8/8; Section 10 skipped. Executed notebook SHA-256 `0855767678962a4f…`; evidence `docs/execution-evidence/2026-10-18-1bf9b91/` | 390.5 s wall | PASS — **pre-registered evaluation of record (REL13)**; not a browser Run all; BYOD (REL12), `SPLIT_SEED` re-run and Section 10 not exercised |
 | 2026-10-09 (22:52:32 UTC start) | commit `adcb4e8` / blob `41caa483bb88` (`metadata.dimer.generated_from.revision` `1a3e196`, the generation-time HEAD; `1a3e196..adcb4e8` is the ModuleSpec/spec-2.2 commit itself; generator `build_notebook.py/2.2`, `notebook_spec` 2.2) | Colab CLI 0.7.4 sequential execution (`colab exec -f`), fresh Colab Tesla T4, session `suite-xclip-adcb4e8-2472`; isolated hash-locked uv environment (49 packages, CPython 3.12.12; kernel Python 3.13.15), nothing installed into the kernel | Default sample path, one pass, no restart: 13/13 code cells, 0 errors (3 carried-module cells print nothing); snapshot 9 files / 790,034,990 bytes digest-verified; HMDB51 row group 318 rows, 300 clips, split 181/53/66; drawn clips top-1 0.2; majority 0.091, frozen test top-1 0.803 / top-3 0.939 / macro F1 0.792; validation epoch 0 (frozen) 0.811, best epoch 2 (0.962), `started_from` pinned base; adapted test 0.909 / 0.985 / 0.905, all verdicts improved; reload parity 8/8; Section 10 skipped (default). Executed notebook SHA-256 `f6e483046884…`; evidence `docs/execution-evidence/2026-10-09-adcb4e8/` | 182.3 s wall | PASS — not a browser Run all; BYOD (REL12), `SPLIT_SEED` re-run and Section 10 not exercised |
 | 2026-09-21 | `d24faf4` (not on `main`) / `93a0accd` (pre-flight: the build-record placeholders still unfilled in the prose, code identical) | Kaggle Tesla T4 (`kurtvalcorza/dimer-nb2-xclip-video-classification` v2) | Default sample path, `Run all` from a fresh interpreter with an empty Hugging Face cache and no repository checkout | 342.2 s | **PASSED** — 11/11 code cells ok (1 restart after install cell); 21 files, 902 MB staged; the metrics the build record quotes |
 | 2026-09-21 | `81fc31a` (not on `main`; the same blob is on `main` via `79e91a2`) / `1e9956b7` | Kaggle Tesla T4 (`kurtvalcorza/dimer-nb2-xclip-video-classification` v3; image `torch 2.10.0+cu128` / `transformers 5.0.0` before the pinned install, `torch 2.14.0+cu130` / `transformers 4.57.6` after, Python 3.12.13, `cuda:0`, float32) | Default sample path, `Run all` from a fresh interpreter with an empty Hugging Face cache and no repository checkout (blob SHA-1 verified against GitHub before execution) | 374.5 s | **PASSED** — 11/11 code cells ok (1 restart after install cell); 21 files, 902 MB staged from the Hub into a clean cache; comparison {top1_accuracy: {chance: 0.1, majority: 0.091, frozen: 0.803, adapted: 0.909}, top3_accuracy: {chance: 0.3, majority: 0.288, frozen: 0.939, adapted: 0.985}, macro_recall: {chance: 0.1, majority: 0.1, frozen: 0.802, adapted: 0.91}, macro_f1: {chance: 0.1, majority: 0.017, frozen: 0.792, adapted: 0.905}, delta_vs_frozen: {top1_accuracy: 0.106, top3_accuracy: 0.045, macro_recall: 0.107, macro_f1: 0.112}, per_label_recall: {brushing hair: {frozen: 1, adapted: 1, support: 6}, doing a cartwheel: {frozen: 1, adapted: 1, support: 6}, catching a ball: {frozen: 1, adapted: 1, support: 7}, chewing: {frozen: 0.43, adapted: 0.86, support: 7}, clapping hands: {frozen: 0.5, adapted: 0.67, support: 6}, climbing: {frozen: 1, adapted: 1, support: 8}, climbing stairs: {frozen: 1, adapted: 1, support: 6}, diving into water: {frozen: 0.67, adapted: 1, support: 6}, drawing a sword: {frozen: 0.71, adapted: 1, support: 7}, dribbling a basketball: {frozen: 0.71, adapted: 0.57, support: 7}}}; drawing / scene / page check frozen vs adapted {frozen: [('a ball standing still', 0.69), ('a ball standing still', 0.51), ('a ball standing still', 0.43), ('a ball standing still', 0.46), ('a ball standing still', 0.57)], adapted: [('a ball standing still', 0.67), ('a ball standing still', 0.47), ('a ball bouncing up and down', 0.37), ('a ball standing still', 0.41), ('a ball standing still', 0.55)]}; reload parity {identical_rankings: 8, of: 8}; run summary and executed notebook archived under `.agent/backups/kaggle-e2e-2026-09-19/out/dimer-nb2-xclip-video-classification/v3/evidence/` in the workspace |
@@ -171,7 +173,10 @@ stated runtime, not general estimates.
   film bootstrap n_boot 2000 seed 113, McNemar counts; "adapted helps" only if the interval excludes 0).
 - **Score-once.** The fresh test is scored only under the pre-registered settings (SCORE_ONCE_RULE). The first hosted
   T4 run with those settings is **the evaluation of record**; later identical runs are reproductions.
-  `protocol.RECORDED_EVALUATION` is `None` until that run. **No hosted fresh-test run is recorded yet.**
+  `protocol.RECORDED_EVALUATION` is `None` until that run. **Evaluation of record: the 2026-10-18 Colab T4 run of
+  `1bf9b91` / `0c9b1f0f` (section below). Reproductions: none yet.** `RECORDED_EVALUATION` is still `None` in the
+  code at `1bf9b91`, so a later identical run labels itself "pre-registered evaluation (this runtime)"; this document,
+  not that label, says which run is the record.
 - **CPU development check, fresh test MASKED** (SCORE_ONCE_RULE 8; `DIMER_MASK_FRESH_TEST=1`), 2026-10-18, code at
   commit `6840787` (working-tree notebook regenerated from it), Windows venv `torch 2.14.0+cpu`, float32, 310 s.
   Nothing was read from the fresh test; no setting was changed after it. `settings_differing` = [] (the gate passes
@@ -217,9 +222,68 @@ stated runtime, not general estimates.
   - "without leakage" is replaced by the per-action statement.
   - Section 7 states that the grid sits at the validation ceiling.
 
+## Fresh-test evaluation of record: hosted T4 (2026-10-18)
+
+**Label (REL13): pre-registered evaluation of record.** It is the first hosted run of the pre-registered settings
+with amendment 1, and the first time any run scored the 669-clip fresh test. The fixer's CPU checks ran with the
+fresh test masked (development check at `6840787`; masked fetch-and-decode check, no model), so there was no
+development look. No earlier hosted attempt at this head scored a fresh clip.
+
+- **Identity.** Commit `1bf9b91abbc103bc581df5f9354dc556e0e19028`, notebook blob
+  `0c9b1f0f930069c365412fb3c1f560a9d7de4feb`; the run's `source.ipynb` hashes to that blob and is byte-equal to the
+  committed notebook. `inspect_run.py`: 39/39 cells, same ids and order, source identity OK; embedded revision
+  `3baea09`, generator `build_notebook.py/2.5`, `module_sha256` `4e34e8b557c8…`, spec 2.5. The CLI writes no
+  execution counts; 10 of 14 code cells have output.
+- **Runtime.** Colab Tesla T4 (`colab status`: `Hardware: T4`), device `cuda:0` (printed by the model-load and ceilings cells),
+  torch 2.14.0+cu130, transformers 4.57.6, av 18.1.0, isolated CPython 3.12.12. The GPU name goes only into the
+  look ledger and `outputs/xclip_video_classification_evaluation_report.json`, which stayed on the released VM, so
+  the committed evidence shows `cuda:0` and `Hardware: T4`, not the device-name string.
+- **Score-once checks.** Section 8 printed `test_look` "pre-registered evaluation (this runtime)", `preregistered`
+  True, `settings_differing` [], selected system "adapted (lr 1e-05)". Every input was the default.
+- **Film check.** Section 4 printed `film_overlap` with 5 films shared across the sample splits under the
+  amendment-1 key (40 clips): `goalkeepertrainingday` and `theboondocksaints` (train / validation), `chewinggum` and
+  `theslowclap` (test / train), `returnoftheking` (test / validation). The masked CPU check at `6840787` printed `{}`
+  under the earlier key. The fresh-test overlap gate (no fresh film in the 300) passed, since scoring went ahead.
+- **Grid (validation, 53 clips, kept-epoch correct).** 1e-5: 51 (epoch 2); 5e-6: 51 (epoch 5); 2e-5: 51 (epoch 1);
+  frozen 43. Selected **1e-5** ("no challenger beat 1e-05 by 2 validation clips"). All 43 grid, baseline and
+  exposed-test lines are equal at printed precision to the masked CPU check (`6840787`; timings excluded).
+- **Fresh test (669 clips, 242 films; the pre-registered reading rule).**
+
+  | | frozen | selected (adapted, lr 1e-5) |
+  |---|---|---|
+  | top-1 | 0.786 (526) | 0.895 (599) |
+
+  Paired difference **+0.109** (73 clips = 90 − 17), film-bootstrap 95% interval **[0.066, 0.151]**, which excludes 0:
+  **adapted helps**. McNemar counts: 17 clips only the frozen model got right, 90 only the adapted head; exact
+  two-sided p 3.5e-13 (assumes independent clips) and film-clustered p 3.1e-6 (Durkalski), both descriptive.
+  Fresh-test chance and majority baselines, top-3 accuracy, macro recall / F1 and per-label recall are written to the
+  evaluation report on the VM and were not printed, so they are not in the committed evidence. Derived from the
+  printed per-class counts and the documented baseline rules: chance top-1 0.100 / top-3 0.300; majority (expected
+  over the cartwheel / clapping tie) top-1 0.102, top-3 0.296, macro recall 0.100, macro F1 0.018 (the same rule
+  reproduces the printed exposed-test values 0.091 / 0.273 / 0.017).
+- **Exposed development test (66 clips; decides nothing).** chance 0.1, majority 0.091 (top-3 0.273), frozen 0.803 /
+  0.939 / 0.802 / 0.792, adapted 0.909 / 0.985 / 0.910 / 0.905 (top-1 / top-3 / macro recall / macro F1); equal to
+  the masked CPU check and, apart from the majority top-3 (0.288 → 0.273, the R113-S1 tie rule), to 2026-10-09.
+- **Re-derivation.** 0.786 × 669 → 526, 0.895 × 669 → 599, difference 73/669 = 0.1091; McNemar net 90 − 17 = 73;
+  the exact binomial p for 17 of 107 recomputes to 3.505779998119023e-13, equal to the printed value. The bootstrap
+  and the clustered p were not re-run (per-clip predictions stayed on the VM).
+- **Timing.** 390.5 s suite wall (exec 08:26:05 → 08:32:26 UTC), against the peer review's estimate of about 7 min.
+  Printed parts: environment 62 s, sample fetch 9.2 s + decode 30.1 s, frozen scoring of 66 clips 3.8 s, tower cache
+  6.7 s, final fit 35.2 s. The fresh fetch / decode / scoring time is only in the report on the VM.
+- **Other.** Adapter 50 tensors, 40,996,184 B; reload parity 8/8; drawn clips 0.2 at chance 0.2 before and after;
+  Section 10 skipped.
+- **Evidence.** `docs/execution-evidence/2026-10-18-1bf9b91/`: the executed notebook (SHA-256
+  `0855767678962a4f128b03b8ec254e22a7e88037d957ade9b9364231b9370257`) and `run_summary.json`
+  (`4a83a60e535ac1fd467ec0089da5d0342b3a3cda6d15762edbd482dd54aa69c5`) byte-equal to the run directory. `exec.log`
+  has the executor run path replaced by `<local-run-dir>/` on lines 1 and 95 (as in `500c44c`): captured
+  `63cf7e8b83ed6ccb3392eadaa5a92b849531de5ec36817da55d267df1f109291`, committed
+  `373ee3d38c1f71341ccf80fe16182ea0fd61f32a6ee27f0678e39acea7f30f86`.
+- **Boundary.** CLI sequential execution, not a browser Run all; forms, uploads, BYOD (REL12), the `SPLIT_SEED`
+  re-run and Section 10 not exercised. The status stays **Candidate**.
+
 ## Current status
 
-**Candidate** (2026-10-09). **Colab T4 one-pass run of the isolated-environment revision (2026-10-09).** Commit `adcb4e8` / blob `41caa483bb88` (generator `build_notebook.py/2.2`, `notebook_spec` 2.2, hash-locked isolated uv environment, worker `google.colab` stubs with a `ModuleSpec`) executed in one pass with no restart and 0 errors on a fresh Colab Tesla T4 (Colab CLI 0.7.4 sequential execution, not a browser `Run all`; 13/13 code cells, 182.3 s wall, `cuda:0`); evidence in `docs/execution-evidence/2026-10-09-adcb4e8/`. The status stays Candidate (REL14): the BYOD journeys (REL12), the `SPLIT_SEED` re-run and the optional Section 10 experiment were not hosted-run. The 2026-09-21 Kaggle T4 run of blob `1e9956b7` (11/11 ok, one restart after the install cell; the blob is on `main` via `79e91a2`) is history.
+**Candidate** (2026-10-18). **Fresh-test evaluation of record (2026-10-18):** commit `1bf9b91` / blob `0c9b1f0f` ran in one pass on a fresh Colab Tesla T4 (Colab CLI 0.7.4, 14/14 code cells, 0 errors, 390.5 s); on the 669-clip fresh test the selected adapted head (lr 1e-5) scored top-1 0.895 against the frozen model's 0.786, difference +0.109, film-bootstrap 95% interval [0.066, 0.151]: **adapted helps**; evidence `docs/execution-evidence/2026-10-18-1bf9b91/`. Earlier: **Colab T4 one-pass run of the isolated-environment revision (2026-10-09).** Commit `adcb4e8` / blob `41caa483bb88` (generator `build_notebook.py/2.2`, `notebook_spec` 2.2, hash-locked isolated uv environment, worker `google.colab` stubs with a `ModuleSpec`) executed in one pass with no restart and 0 errors on a fresh Colab Tesla T4 (Colab CLI 0.7.4 sequential execution, not a browser `Run all`; 13/13 code cells, 182.3 s wall, `cuda:0`); evidence in `docs/execution-evidence/2026-10-09-adcb4e8/`. The status stays Candidate (REL14): the BYOD journeys (REL12), the `SPLIT_SEED` re-run and the optional Section 10 experiment were not hosted-run. The 2026-09-21 Kaggle T4 run of blob `1e9956b7` (11/11 ok, one restart after the install cell; the blob is on `main` via `79e91a2`) is history.
 
 Facts a reviewer should weigh: the sample is ten HMDB51 human actions cut from films and web videos — close to the
 checkpoint's Kinetics-400 training distribution, which is why the frozen zero-shot model already ranks the right class

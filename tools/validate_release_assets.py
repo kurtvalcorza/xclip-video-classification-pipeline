@@ -74,7 +74,7 @@ CODE_MARKERS = (
     "adapted_val = pipe.evaluate(val_records, LABELS, batch_size=EVAL_BATCH_SIZE)",
     "comparison['verdicts'] = ",
     "frozen_verdict = ",
-    "adapted_drawn, adapted_drawn_timings, adapted_drawn_checks, adapted_drawn_report = rank_drawings(pipe, 'adapted')",
+    "adapted_drawn, adapted_drawn_timings, adapted_drawn_checks, adapted_drawn_report = rank_drawings(pipe, 'adapted' + RUN_SUFFIX)",
     "pipe.save_artifact(artifact_dir, metadata={'tutorial': 'xclip_video_classification', 'data_source': data_source, 'test_look': test_look})",
     "reloaded = XClipVideoClassificationPipeline.from_artifact(artifact_dir, weights_dir=WEIGHTS_DIR, device=pipe.device)",
     "assert parity['identical_rankings'] == parity['of']",

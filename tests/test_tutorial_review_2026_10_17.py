@@ -133,7 +133,7 @@ def test_m2_section_8_checks_everything_before_touching_the_fresh_test(notebook)
 
 def test_m2_section_10_is_exploratory_and_a_run_after_it_is_a_reproduction(notebook, tmp_path, monkeypatch):
     section10 = _cell(notebook, "RUN_EXPERIMENT = False")
-    assert "fetch_fresh_test" not in section10 and "fresh" not in section10.replace("fresh test is never read", "")
+    assert "fetch_fresh_test" not in section10 and "fresh" not in section10.replace("fresh test is never read", "").replace("never the fresh test", "")
     assert "TEST_LOOKS[2]" in section10
     _run8(notebook, tmp_path, monkeypatch)
     ns, fetched, pipe = _run8(notebook, tmp_path, monkeypatch)  # Section 8 again after Section 10

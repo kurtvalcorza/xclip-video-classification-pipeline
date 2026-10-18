@@ -120,7 +120,7 @@ TEMPLATE = {
         "the Colab T4 run of blob 41caa483 (commit adcb4e8, 2026-10-09), on clips that are now the exposed development test (chance is 0.100), so the honest question is narrow: does a bounded fine-tuning of the fusion head "
         "— the frame-integration transformer, the two visual projections and the prompt generator, 10,247,680 of the "
         "parameters — on 181 clips move the held-out **top-1 accuracy**, **top-3 accuracy**, **macro recall** and **macro F1** "
-        "on a fresh, never-scored test past the frozen model, read with a pre-registered rule, and what does it do to the "
+        "on a fresh, never-scored test past the frozen model and two **non-adapted baselines**, read with a pre-registered rule, and what does it do to the "
         "drawn clips the same head ranks? Nothing here is a claim about your videos or your classes: it is one seeded split "
         "of one small labelled set.\n\n"
         "**Snapshot note:** the pinned revision ships `model.safetensors` (a 9-file manifest with the tokenizer and processor "
@@ -527,7 +527,8 @@ TEMPLATE = {
                 "**adapted helps** only if the interval excludes 0; otherwise **no demonstrated gain**. Top-3, macro F1 and "
                 "per-label recall are descriptive. No clip appears in two splits, and no source video appears in two splits "
                 "*for the same action*; no fresh-test film appears in the 300 under the strict film key (checked here). The "
-                "Kinetics-400 exposure of Section 6 applies to the fresh clips too.\n\n"
+                "Kinetics-400 exposure of Section 6 applies to the fresh clips too. The 66 exposed clips give **no dispersion "
+                "estimate** (one clip is 1.5 points); the bootstrap interval on the fresh test is the dispersion read.\n\n"
                 "**Predict before running:** which labels will fine-tuning help most — those the pre-trained model already "
                 "handled, or those it missed?"
             ),
@@ -812,7 +813,8 @@ TEMPLATE = {
         "[2] H. Kuehne, H. Jhuang, E. Garrote, T. Poggio, and T. Serre, \"HMDB: A large video database for human motion recognition,\" in *Proc. IEEE Int. Conf. Comput. Vis. (ICCV)*, 2011, pp. 2556–2563. Data (CC BY 4.0): https://huggingface.co/datasets/Serrelab/hmdb51; parquet repack read here: https://huggingface.co/datasets/mteb/HMDB51\n\n"
         "[3] W. Kay *et al.*, \"The Kinetics human action video dataset,\" arXiv:1705.06950, 2017. [Online]. Available: https://arxiv.org/abs/1705.06950\n\n"
         "[4] Microsoft, \"microsoft/xclip-base-patch32,\" Hugging Face model repository. [Online]. Available: https://huggingface.co/{MODEL_ID}; code: https://github.com/microsoft/VideoX/tree/master/X-CLIP\n\n"
-        "[5] K. Valcorza, \"xclip-video-classification-pipeline: README, model card, weight provenance, pre-registration and release verification.\" [Online]. Available: https://github.com/kurtvalcorza/xclip-video-classification-pipeline (README.md, MODEL_CARD.md, docs/WEIGHTS.md, docs/xclip-preregistration.md, docs/release-verification.md)\n\n"
+        "[5] K. Valcorza, \"xclip-video-classification-pipeline: README, model card, weight provenance, pre-registration and release verification.\" [Online]. Available: https://github.com/kurtvalcorza/xclip-video-classification-pipeline (README.md, docs/WEIGHTS.md, docs/xclip-preregistration.md, docs/release-verification.md)\n\n"
+        "- Repository model card: https://github.com/kurtvalcorza/xclip-video-classification-pipeline/blob/main/MODEL_CARD.md\n\n"
         "[6] DIMER Notebook Specification 2.5 and Model Card Specification 1.1 (fleet specs in the ml-worker repository)."
     ),
 }

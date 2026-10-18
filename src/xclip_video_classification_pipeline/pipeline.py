@@ -541,7 +541,7 @@ class XClipVideoClassificationPipeline:
             raise RuntimeError(f"backend returned logits of shape {logits.shape} for {len(names)} labels")
         shifted = np.exp(logits - logits.max())
         probs = shifted / shifted.sum()
-        order = np.argsort(-probs)
+        order = np.argsort(-probs, kind="stable")
         predictions = [
             {"label": names[index], "probability": float(probs[index]), "logit": float(logits[index])}
             for index in order
@@ -636,6 +636,54 @@ class XClipVideoClassificationPipeline:
             "seconds": round(time.perf_counter() - started, 3),
         }
 
+    def head_state(self) -> dict[str, Any]:
+        """A copy of the live fusion-head tensors (to keep one grid run while others train)."""
+        model, _processor = self._require_model()
+        names = set(_trainable_names(model))
+        return {n: t.detach().clone() for n, t in model.state_dict().items() if n in names}
+
+    def load_head_state(self, state: Mapping[str, Any], adapter: Mapping[str, Any]) -> None:
+        """Put a `head_state()` copy back and set its adapter record (the grid's selected run, without re-training)."""
+        model, _processor = self._require_model()
+        import torch
+
+        self._remember_base(list(state))
+        with torch.no_grad():
+            model.load_state_dict(dict(state), strict=False)
+        model.eval()
+        self.adapter = dict(adapter)
+
+    def head_digest(self) -> str:
+        """SHA-256 over the live fusion-head tensors (name, dtype, shape, bytes), the identity of the model in memory."""
+        model, _processor = self._require_model()
+        digest = hashlib.sha256()
+        state = model.state_dict()
+        for name in sorted(_trainable_names(model)):
+            tensor = state[name].detach().to("cpu").contiguous()
+            digest.update(f"{name}:{tensor.dtype}:{tuple(tensor.shape)}:".encode())
+            digest.update(tensor.numpy().tobytes())
+        return digest.hexdigest()
+
+    def evaluate_base(
+        self, records: Sequence[Mapping[str, Any]], labels: Sequence[str], *, batch_size: int = EVAL_BATCH_SIZE
+    ) -> dict[str, Any]:
+        """`evaluate` with the pinned base head, then put the current (adapted) head and its adapter record back, so the
+        frozen and the adapted model can be scored on the same clips without re-training."""
+        model, _processor = self._require_model()
+        import torch
+
+        names = list(self._base_state)
+        current = {n: t.detach().clone() for n, t in model.state_dict().items() if n in set(names)}
+        adapter = self.adapter
+        try:
+            self.restore_base()
+            return self.evaluate(records, labels, batch_size=batch_size)
+        finally:
+            with torch.no_grad():
+                model.load_state_dict(current, strict=False)
+            model.eval()
+            self.adapter = adapter
+
     def _encode_clips(self, records: Sequence[Mapping[str, Any]], batch_size: int, progress: Callable[[int, int], None] | None = None) -> tuple[Any, Any]:
         """Run the frozen vision tower once per clip: pooled CLS features (n, NUM_FRAMES, VISION_WIDTH) and patch
         features (n, NUM_FRAMES, FRAME_TOKENS - 1, VISION_WIDTH), kept on the model's device in float32."""
@@ -689,15 +737,18 @@ class XClipVideoClassificationPipeline:
         lr: float = 1e-5,
         batch_size: int = 16,
         seed: int = 0,
+        min_improvement: float = 0.0,
         progress: Callable[[Mapping[str, Any]], None] | None = None,
     ) -> dict[str, Any]:
         """Bounded fine-tuning of the fusion head on labelled clips with the cross-entropy over the closed label set
         (the model's own contrastive scoring, read as a classifier over `labels`). The frozen towers — the ViT-B/32
         vision encoder with its cross-frame attention and the CLIP text encoder — are run once per clip and label
         set under no gradient and their outputs are cached, so each step runs only the head; the logits equal the
-        full model's exactly. AdamW (no weight decay), gradient clipping at `GRAD_CLIP`, seeded shuffling, no
-        scheduler, no augmentation. Epoch 0 records the frozen model's validation metrics; the epoch with the highest
-        validation top-1 accuracy (the earliest on ties) is kept. Every call starts from the pinned base: head tensors
+        full model's up to float rounding (the recorded parity is 3.8e-6). AdamW (no weight decay), gradient clipping at `GRAD_CLIP`, seeded shuffling, no
+        scheduler, no augmentation. Epoch 0 records the frozen model's validation metrics; the adapted epoch with the
+        highest validation top-1 accuracy (the earliest on ties) is kept only if it beats the frozen model's validation
+        top-1 by more than 0 and by at least `min_improvement` (a top-1 fraction, e.g. 2 / n_val for two clips);
+        otherwise epoch 0, the frozen model, is kept. Every call starts from the pinned base: head tensors
         an earlier adapt() or load_artifact() changed are restored first, so epoch 0 is always the frozen model. On
         any exception the head and the adapter record this call found are put back."""
         from .metrics import classification_metrics
@@ -709,6 +760,8 @@ class XClipVideoClassificationPipeline:
             raise ValueError("batch_size must be an int in 1..128")
         if not isinstance(lr, int | float) or isinstance(lr, bool) or not 0 < lr <= 1e-2:
             raise ValueError("lr must be a number in (0, 1e-2]")
+        if not isinstance(min_improvement, int | float) or isinstance(min_improvement, bool) or not 0 <= min_improvement < 1:
+            raise ValueError("min_improvement must be a number in [0, 1)")
         names = format_labels(labels)
         train_checked = validate_dataset(train, names)["records"]
         val_checked = validate_dataset(val, names, min_records=1, min_per_class=1)["records"] if val is not None else None
@@ -754,8 +807,9 @@ class XClipVideoClassificationPipeline:
             history: list[dict[str, Any]] = [{"epoch": 0, "train_loss": None, "val": score_val(), "note": "frozen model"}]
             if progress is not None:
                 progress(history[-1])
-            best_epoch, best_acc = 0, (history[0]["val"] or {}).get("top1_accuracy", -1.0)
-            best_state = {name: param.detach().clone() for name, param in params.items()}
+            frozen_acc = (history[0]["val"] or {}).get("top1_accuracy", -1.0)
+            frozen_state = {name: param.detach().clone() for name, param in params.items()}
+            best_epoch, best_acc, best_state = 0, -1.0, frozen_state
             optimizer = torch.optim.AdamW(list(params.values()), lr=lr, weight_decay=0.0)
             rng = random.Random(seed)
             torch.manual_seed(seed)
@@ -783,6 +837,8 @@ class XClipVideoClassificationPipeline:
                 if val_checked is None or (acc is not None and acc > best_acc):
                     best_epoch, best_acc = epoch, acc if acc is not None else best_acc
                     best_state = {name: param.detach().clone() for name, param in params.items()}
+            if val_checked is not None and not (best_acc > frozen_acc and best_acc - frozen_acc >= min_improvement - 1e-12):
+                best_epoch, best_state = 0, frozen_state  # keep frozen unless beaten by the margin
             with torch.no_grad():
                 for name, param in params.items():
                     param.copy_(best_state[name])
@@ -808,6 +864,7 @@ class XClipVideoClassificationPipeline:
             "selection": "highest validation top-1 accuracy" if val_checked is not None else "final epoch (no validation split)",
             "lr": lr,
             "seed": seed,
+            "min_improvement": min_improvement,
             "started_from": "pinned base"
             + (f" (restored {len(restored)} head tensors changed by an earlier run)" if restored else ""),
             "grad_clip": GRAD_CLIP,

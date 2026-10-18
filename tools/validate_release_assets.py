@@ -1,6 +1,6 @@
 """Static release-asset validation for the X-CLIP base/32 video-classification DIMER pipeline.
 
-Checks the STANDALONE tutorial notebook (DIMER Notebook Specification 2.2 §4), the tutorial
+Checks the STANDALONE tutorial notebook (DIMER Notebook Specification 2.5 §4), the tutorial
 registry, model card, README, STATUS.md and weight documentation for source conformance and
 cross-document identity consistency, and runs the generator parity checks (PAR1–PAR3).
 
@@ -41,7 +41,7 @@ EXPECTED_OUTPUTS = (
     "outputs/xclip_video_classification_evaluation_report.json",
     "outputs/xclip_video_classification_examples",
     "outputs/xclip_video_classification_adapter",
-    "outputs/xclip_video_classification_result.json",
+    "outputs/xclip_video_classification_result{RUN_SUFFIX}.json",  # one suffix per run (SCORE_ONCE_RULE 5)
 )
 # Profile-specific code the notebook must exercise through the carried package's public API.
 CODE_MARKERS = (
@@ -66,13 +66,17 @@ CODE_MARKERS = (
     "baseline_chance = chance_baseline(test_records, LABELS)",
     "baseline_majority = majority_baseline(train_records, test_records, LABELS)",
     "frozen_test = pipe.evaluate(test_records, LABELS, batch_size=EVAL_BATCH_SIZE)",
-    "adapt_result = pipe.adapt(train_records, val_records, LABELS, epochs=EPOCHS, lr=LEARNING_RATE, batch_size=BATCH_SIZE, progress=report)",
+    "run = pipe.adapt(train_records, val_records, LABELS, epochs=EPOCHS, lr=grid_lr, batch_size=BATCH_SIZE, min_improvement=min_improvement, progress=report)",
+    "differing = settings_differing(settings_used, grid_record, fingerprint_now, model_state)",
+    "test_look = look_at_test(differing, LOOK_LOG, canonical_report, masked=fresh_test_masked(), recorded=RECORDED_EVALUATION)",
+    "compare_with_record(reading, settings_used['lr'], RECORDED_EVALUATION)",
+    "if fresh_test_scored(test_look):",
     "adapted_test = pipe.evaluate(test_records, LABELS, batch_size=EVAL_BATCH_SIZE)",
     "adapted_val = pipe.evaluate(val_records, LABELS, batch_size=EVAL_BATCH_SIZE)",
     "comparison['verdicts'] = ",
     "frozen_verdict = ",
-    "adapted_drawn, adapted_drawn_timings, adapted_drawn_checks, adapted_drawn_report = rank_drawings(pipe, 'adapted')",
-    "pipe.save_artifact(artifact_dir, metadata={'tutorial': 'xclip_video_classification', 'data_source': data_source})",
+    "adapted_drawn, adapted_drawn_timings, adapted_drawn_checks, adapted_drawn_report = rank_drawings(pipe, 'adapted' + RUN_SUFFIX)",
+    "pipe.save_artifact(artifact_dir, metadata={'tutorial': 'xclip_video_classification', 'data_source': data_source, 'test_look': test_look})",
     "reloaded = XClipVideoClassificationPipeline.from_artifact(artifact_dir, weights_dir=WEIGHTS_DIR, device=pipe.device)",
     "assert parity['identical_rankings'] == parity['of']",
     # Section 10 (optional, off by default): its own pipeline, default exports checked unchanged (XCL-M2)
@@ -110,9 +114,9 @@ MARKDOWN_MARKERS = (
     "`sample-sanity`",
     "## 4. HMDB51 clips, the labels and the source-grouped split",
     "## 5. Rank five drawn clips through the inference contract",
-    "## 6. Baselines and the frozen model on the test clips",
+    "## 6. Baselines and the frozen model on the exposed development test",
     "## 7. Bounded fine-tuning of the fusion head",
-    "## 8. Held-out evaluation",
+    "## 8. The exposed development test and the fresh test",
     "## 9. Look at the clips, rank the drawings again, export the adapter and reload it",
     "**Macro over micro:**",
     "**Leakage:**",
@@ -156,10 +160,10 @@ INSTALL_CELL_MARKER = "# dimer: kernel cell"
 # ---------------------------------------------------------------------------
 # Shared checks. Everything below is source/structure validation only. Passing
 # these checks is NOT clean-runtime execution evidence under DIMER Notebook
-# Specification 2.2; see docs/release-verification.md for the release gate.
+# Specification 2.5; see docs/release-verification.md for the release gate.
 # ---------------------------------------------------------------------------
 
-NOTEBOOK_SPEC = "2.2"
+NOTEBOOK_SPEC = "2.5"
 ALLOWED_PROFILES = {"E2E", "ARTIFACT-INFERENCE", "TASK-INFERENCE", "MULTI-CAPABILITY", "SMOKE"}
 STATUS_TOKENS = ("Candidate", "Release-grade")
 PLACEHOLDER = re.compile(r"\b(TODO|TBD|FIXME)\b|Insert text here|Tooltip:", re.I)

@@ -212,7 +212,7 @@ def test_xcl_m3_guided_layer_is_present(notebook):
 
 def test_xcl_m3_infrastructure_cells_are_labelled_and_collapsed(notebook):
     infra = [c for c in _code_cells(notebook) if c["metadata"].get("cellView") == "form"]
-    assert len([c for c in infra if c["metadata"].get("dimer", {}).get("embedded_module")]) == 3
+    assert len([c for c in infra if c["metadata"].get("dimer", {}).get("embedded_module")]) == 4  # pipeline, metrics, samples, protocol (2026-10-17)
     titled = [c["source"].splitlines()[0] for c in infra if not c["metadata"].get("dimer")]
     assert len(titled) == 3 and all(t.startswith("# @title Infrastructure:") for t in titled), titled
 
@@ -259,8 +259,22 @@ def test_xcl_m1_a_worse_test_score_is_recorded_and_does_not_stop_the_notebook(no
     }
     exec(_cell(notebook, "baseline_chance = chance_baseline("), ns)
     assert ns["frozen_verdict"] == "pre-trained model above both baselines"
-    exec(_cell(notebook, "adapted_test = pipe.evaluate(test_records, LABELS"), ns)
-    verdicts = json.loads((tmp_path / "outputs" / f"{STEM}_evaluation_report.json").read_text(encoding="utf-8"))["comparison"]["verdicts"]
+    # Section 8 (2026-10-17: score-once gate) with the stand-in pipe of tests/_section8.py; the exposed development
+    # test scores worse than the frozen model and the cell still records it.
+    from _section8 import StandInPipe, adapter, grid
+    from _section8 import namespace as section8_namespace
+
+    class Worse(StandInPipe):
+        def evaluate(self, records, labels, batch_size=8):
+            return super().evaluate(records, labels, batch_size) if records and str(records[0].get("id", "")).startswith("hmdb51-train-") else _m(0.5)
+
+    ns8 = section8_namespace(Worse(adapter()), grid(), [])
+    ns8.update({"frozen_test": ns["frozen_test"], "baseline_chance": ns["baseline_chance"], "baseline_majority": ns["baseline_majority"], "frozen_verdict": ns["frozen_verdict"]})
+    exec(_cell(notebook, "adapted_test = pipe.evaluate(test_records, LABELS"), ns8)
+    # With the evaluation of record set, this first run in a new runtime is a reproduction: `_reproduction_1`.
+    assert ns8["test_look"] == "reproduction"
+    report = json.loads((tmp_path / ns8["report_path"]).read_text(encoding="utf-8"))
+    verdicts = report["exposed_development_test"]["comparison"]["verdicts"]
     assert verdicts["adapted_vs_frozen_top1_accuracy"] == "worse" and verdicts["adapted_above_both_baselines"] is False
 
 

@@ -541,7 +541,7 @@ class XClipVideoClassificationPipeline:
             raise RuntimeError(f"backend returned logits of shape {logits.shape} for {len(names)} labels")
         shifted = np.exp(logits - logits.max())
         probs = shifted / shifted.sum()
-        order = np.argsort(-probs)
+        order = np.argsort(-probs, kind="stable")
         predictions = [
             {"label": names[index], "probability": float(probs[index]), "logit": float(logits[index])}
             for index in order

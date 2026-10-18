@@ -188,6 +188,35 @@ stated runtime, not general estimates.
   unchanged; run_summary.json carries no log digest).
 - Spec: generator `build_notebook.py/2.5`, `notebook_spec` 2.5, `notebook_kind` TUTORIAL, use notice (DOC17).
 
+## Amendment 1 and the peer-review round (2026-10-18)
+
+- **Pre-registration amendment 1** `docs/xclip-preregistration-amendment-1.md`, committed alone (`56fd447`) before
+  any fresh-test score. The fresh test has only ever been masked.
+  - Film key normalised: case-fold, then delete everything outside 0-9 / a-z, then strip trailing digits (peer review
+    F1/F6). Under the earlier key, 13 fresh clips of 4 films that are also in the 300 escaped exclusion:
+    `Treppen_steigen` (9), `Basketball_Dribbling_Tips` (2), `Hechtsprung_1` (1) and `…(Part4)` (1).
+  - The fresh test is now **669 clips** in 242 films, list SHA-256 `c651eb98…abba` (it was 682, `ac0144fa…bc04`).
+    climb_stairs drops to 57, still at least 50.
+  - Bootstrap clusters use the same key.
+  - The MDE is stated: about 0.034–0.067 at 80 % power.
+  - McNemar now also reports a cluster-adjusted (Durkalski) p. Both p values are descriptive only.
+- **Masked fetch-and-decode check** (`DIMER_MASK_FRESH_TEST=1` plus `DIMER_FRESH_FETCH_CHECK=1`, or
+  `samples.check_fresh_test`). It fetches the fresh test, verifies the pins and the list, and decodes every clip,
+  with no model involved.
+  Result: 669 clips verified against the row-group pins and the list digest, 669 decoded to 8 frames with PyAV 18.1.0 (fetch and verify 1.6 s from the cached row groups, decode 510.7 s). No model loaded, no prediction made.
+- **Look ledger** (`outputs/*_test_looks.jsonl`):
+  - An `attempt` entry is written before any model sees the fresh clips, so a crash mid-scoring still counts as a look.
+  - The report is written before the `scored` entry, which carries the full reading.
+  - An unparsable ledger line counts as a prior look.
+  - Every look records the device and GPU name. The definition of the evaluation of record is unchanged.
+- **Other changes:**
+  - The sample split's film check refuses records without a film key, where it used to pass silently.
+  - The fresh-test report carries the chance and majority baselines.
+  - The majority baseline's per-label rates and confusion are now expected values.
+  - Adapted drawings are written under the run suffix.
+  - "without leakage" is replaced by the per-action statement.
+  - Section 7 states that the grid sits at the validation ceiling.
+
 ## Current status
 
 **Candidate** (2026-10-09). **Colab T4 one-pass run of the isolated-environment revision (2026-10-09).** Commit `adcb4e8` / blob `41caa483bb88` (generator `build_notebook.py/2.2`, `notebook_spec` 2.2, hash-locked isolated uv environment, worker `google.colab` stubs with a `ModuleSpec`) executed in one pass with no restart and 0 errors on a fresh Colab Tesla T4 (Colab CLI 0.7.4 sequential execution, not a browser `Run all`; 13/13 code cells, 182.3 s wall, `cuda:0`); evidence in `docs/execution-evidence/2026-10-09-adcb4e8/`. The status stays Candidate (REL14): the BYOD journeys (REL12), the `SPLIT_SEED` re-run and the optional Section 10 experiment were not hosted-run. The 2026-09-21 Kaggle T4 run of blob `1e9956b7` (11/11 ok, one restart after the install cell; the blob is on `main` via `79e91a2`) is history.

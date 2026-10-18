@@ -63,10 +63,11 @@ FRESH_ROW_GROUP_PINS: dict[int, tuple[str, int]] = {
     1: ("6bcc4700ffc1f3541a802af5bd68a0f0c02d1335ecc057e0ec0b662cfe777069", 101_805_360),
     2: ("f720253403970c478941585b93bbc63cbf3f1919a1daacf88216cb3f17df6eef", 83_889_668),
 }
-FRESH_EXCLUDED_FILMS: tuple[str, ...] = ("basketball_dribbling_tips_", "chewing_gum", "finding_forrester", "how_to_do_a_cartwheel", "projekt_spoho_2008_-_27_02_08_-_training-_bodenk_r", "return_of_the_king", "theboondocksaints", "treppensteigen")
+# Normalised film keys (amendment 1, docs/xclip-preregistration-amendment-1.md) of the 300 sample films found in the pool.
+FRESH_EXCLUDED_FILMS: tuple[str, ...] = ("basketballdribblingtips", "chewinggum", "findingforrester", "hechtsprung", "howtodoacartwheel", "projektspoho2008270208trainingbodenkr", "returnoftheking", "theboondocksaints", "treppensteigen", "zweihoffnungslosepflegefllebeimturnenpart")
 FRESH_SCREEN_EXCLUDED: tuple[str, ...] = ()  # the screen removed none (docs/xclip-preregistration.md)
-FRESH_TEST_CLIPS = 682
-FRESH_TEST_LIST_SHA256 = "ac0144fa7c33b06ec11ce73b560eaf339ea0c9c70dd934493ca4303019a4bc04"  # fresh_clip_list_digest over (row group, index, path, bytes, SHA-256) of every kept clip
+FRESH_TEST_CLIPS = 669  # amendment 1 (was 682 under the strict key)
+FRESH_TEST_LIST_SHA256 = "c651eb98607c6fca4ae733df01fa7c039df4ea18d25b6499cd3cf5ad8261abba"  # fresh_clip_list_digest over (row group, index, path, bytes, SHA-256) of every kept clip
 
 # The HMDB51 class vocabulary (parquet `label` feature names) and the ten classes the sample keeps, with the
 # natural-language label the CLIP text tower is asked to rank (the upstream zero-shot recipe uses plain phrases).
@@ -243,11 +244,12 @@ def source_of(path: str, class_name: str) -> str:
 
 
 def film_of(path: str, class_name: str) -> str:
-    """The stricter film key (owner ruling R113-D1): the source-video name of `source_of`, case-folded, with trailing
-    `_<n>` part suffixes stripped, so numbered parts of one film (`Finding_Forrester_1`, `_3`) are one film."""
+    """The normalised film key (pre-registration amendment 1): the source-video name of `source_of`, case-folded, every
+    character outside 0-9 / a-z deleted, trailing digits stripped, so spelling variants and numbered parts of one film
+    (`Treppen_steigen` / `treppensteigen_1`, `Finding_Forrester_1` / `_3`) are one film."""
     match = re.match(rf"^(.*)_{re.escape(class_name)}_(.*)_(\d+)\.avi$", path)
     film = match.group(1) if match else Path(path).stem
-    return re.sub(r"(_\d+)+$", "", film).lower()
+    return re.sub(r"\d+$", "", re.sub(r"[^0-9a-z]", "", film.lower()))
 
 
 def film_overlap(splits: Mapping[str, Sequence[Mapping[str, Any]]]) -> dict[str, Any]:
@@ -284,6 +286,27 @@ def fresh_test_clips(groups: Mapping[int, Sequence[Mapping[str, Any]]]) -> list[
     if len(out) != FRESH_TEST_CLIPS or digest != FRESH_TEST_LIST_SHA256:
         raise ValueError(f"fresh test list: {len(out)} clips / sha256 {digest} != pinned {FRESH_TEST_CLIPS} / {FRESH_TEST_LIST_SHA256}")
     return out
+
+
+def check_fresh_test(*, cache_dir: str | Path | None = None, opener: Any = None) -> dict[str, Any]:
+    """The masked fetch-and-decode check: fetch and verify the fresh test's row groups, pins and clip list, decode every
+    clip and count frames. No model, no predictions, no labels compared against anything; it exercises the hosted path
+    the evaluation of record will take."""
+    import time
+
+    import av
+
+    started = time.perf_counter()
+    groups = _fetch_groups(url=FRESH_URL, file=FRESH_FILE, size=FRESH_BYTES, n_rows=FRESH_ROWS, pins=FRESH_ROW_GROUP_PINS,
+                           prefix="train0000-rg", cache_dir=cache_dir, groups=None, opener=opener)
+    clips = fresh_test_clips(groups)
+    fetched = time.perf_counter() - started
+    decoded = sum(len(decode_clip(c["video"])) == NUM_FRAMES for c in clips)
+    per_class: dict[str, int] = defaultdict(int)
+    for c in clips:
+        per_class[c["class"]] += 1
+    return {"clips": len(clips), "decoded": decoded, "per_class": dict(sorted(per_class.items())), "list_sha256": FRESH_TEST_LIST_SHA256,
+            "pyav": av.__version__, "fetch_verify_seconds": round(fetched, 1), "decode_seconds": round(time.perf_counter() - started - fetched, 1)}
 
 
 def fetch_fresh_test(*, cache_dir: str | Path | None = None, opener: Any = None) -> list[dict[str, Any]]:

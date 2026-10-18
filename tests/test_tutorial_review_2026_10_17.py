@@ -69,7 +69,7 @@ def test_m2_default_run_scores_the_fresh_test_once_as_the_preregistered_evaluati
     assert len(fetched) == 1 and pipe.fresh_calls == 2
     reading = report["fresh_test"]["reading_rule"]
     assert reading["n"] == len(FRESH) and reading["n_boot"] == pr.N_BOOT and reading["seed"] == pr.BOOT_SEED
-    assert set(reading["mcnemar"]) == {"frozen_only_correct", "selected_only_correct", "exact_p_two_sided"}
+    assert {"frozen_only_correct", "selected_only_correct", "exact_p_two_sided", "clustered_p"} <= set(reading["mcnemar"])
     assert report["recorded_evaluation"] is None
 
 
@@ -145,7 +145,7 @@ def test_m2_grid_is_on_by_default_and_matches_the_preregistration(notebook):
     assert "LEARNING_RATE = 0.0  # @param" in source and "EPOCHS = 8  # @param" in source and "BATCH_SIZE = 16  # @param" in source
     assert "pipe.load_head_state(" in source and "min_improvement=min_improvement" in source
     assert pr.GRID_LRS == (1e-5, 5e-6, 2e-5) and pr.DEFAULT_LR == 1e-5 and pr.GRID_MARGIN_CLIPS == 2 == pr.KEEP_FROZEN_MARGIN_CLIPS
-    prereg = (ROOT / pr.PREREGISTRATION).read_text(encoding="utf-8")
+    prereg = "\n".join((ROOT / p).read_text(encoding="utf-8") for p in (pr.PREREGISTRATION, *pr.AMENDMENTS))
     for needle in ("1e-5", "5e-6", "2e-5", "8 epochs", "two clips", sm.FRESH_TEST_LIST_SHA256, str(pr.N_BOOT), str(pr.BOOT_SEED)):
         assert needle in prereg, needle
 
@@ -207,7 +207,7 @@ def test_m1_reading_rule_bootstraps_films_and_reads_only_an_interval_excluding_z
     helps = pr.paired_reading([False] * 30, [True] * 30, films)
     assert helps["verdict"] == "adapted helps" and helps["ci95"][0] > 0 and helps["mcnemar"]["selected_only_correct"] == 30
     mixed = pr.paired_reading([i % 2 == 0 for i in range(30)], [i % 3 == 0 for i in range(30)], films)
-    assert mixed["verdict"] in ("no demonstrated gain", "adapted is worse") and mixed["films"] == 10
+    assert mixed["verdict"].startswith(("no demonstrated gain", "adapted is worse")) and mixed["films"] == 10
     assert pr.paired_reading([True] * 30, [True] * 30, films, selected_system="frozen")["verdict"].startswith("no demonstrated gain")
     assert pr.paired_reading([True, False], [False, True], ["x", "y"]) == pr.paired_reading([True, False], [False, True], ["x", "y"])  # fixed seed
 
@@ -218,8 +218,11 @@ def test_m1_reading_rule_bootstraps_films_and_reads_only_an_interval_excluding_z
 def test_d1_fresh_test_is_pinned_and_disjoint_by_construction():
     assert sm.FRESH_FILE == "default/train/0000.parquet" and sorted(sm.FRESH_ROW_GROUP_PINS) == [0, 1, 2]
     assert sm.FRESH_URL.startswith(f"https://huggingface.co/datasets/mteb/HMDB51/resolve/{sm.CORPUS_REVISION}/")
-    assert len(sm.FRESH_EXCLUDED_FILMS) == 8 and 682 - len(sm.FRESH_SCREEN_EXCLUDED) == sm.FRESH_TEST_CLIPS
-    assert sm.film_of("Finding_Forrester_3_catch_f_cm_np1_fr_med_0.avi", "catch") == "finding_forrester"
+    assert len(sm.FRESH_EXCLUDED_FILMS) == 10 and sm.FRESH_TEST_CLIPS == 669 and sm.FRESH_SCREEN_EXCLUDED == ()
+    assert sm.film_of("Finding_Forrester_3_catch_f_cm_np1_fr_med_0.avi", "catch") == "findingforrester"
+    # amendment 1: spelling variants are one film
+    assert sm.film_of("Treppen_steigen_climb_stairs_f_cm_np1_ba_bad_3.avi", "climb_stairs") == sm.film_of("treppensteigen_1_climb_stairs_f_cm_np1_ba_med_0.avi", "climb_stairs")
+    assert sm.film_of("Basketball_Dribbling_Tips_dribble_f_cm_np1_ri_med_4.avi", "dribble") == sm.film_of("Basketball_Dribbling_Tips__2_dribble_f_cm_np1_ri_med_0.avi", "dribble")
     assert sm.film_of("TheBoondockSaints_drink_u_cm_np1_ba_goo_2.avi", "drink") == "theboondocksaints"
 
 
@@ -326,3 +329,104 @@ def test_m2r_validation_keeps_the_film_key_so_overlap_checks_see_it():
     records = [{"id": f"c{i}", "frames": frames, "label": "brushing hair" if i % 2 else "chewing", "source": f"s{i}", "film": f"f{i}"} for i in range(16)]
     checked = sm.validate_dataset(records, ["brushing hair", "chewing"], min_per_class=1)["records"]
     assert [r["film"] for r in checked] == [f"f{i}" for i in range(16)]
+
+
+# --- Round 2 (peer review of PR #9; pre-registration amendment 1) --------------------------------------------------------
+
+
+def test_a1_appendix_a_minus_the_normalised_key_exclusions_is_the_pinned_list():
+    text = (ROOT / pr.PREREGISTRATION).read_text(encoding="utf-8")
+    block = text.split('`' * 3 + "text\n")[1].split('`' * 3)[0]
+    classes = list(sm.SAMPLE_CLASS_TEXT)
+    kept = []
+    for line in block.splitlines():
+        g, i, p, n, h = line.split("\t")
+        cls = max((c for c in classes if f"_{c}_" in p), key=len)
+        if sm.film_of(p, cls) not in sm.FRESH_EXCLUDED_FILMS:
+            kept.append({"row_group": g, "index": i, "path": p, "size": n, "sha256": h})
+    assert len(kept) == sm.FRESH_TEST_CLIPS == 669
+    assert sm.fresh_clip_list_digest(kept) == sm.FRESH_TEST_LIST_SHA256
+
+
+def test_a5_mcnemar_is_clustered_and_descriptive():
+    films = [f"f{i // 3}" for i in range(30)]
+    m = pr.paired_reading([False] * 30, [True] * 30, films)["mcnemar"]
+    assert m["clustered_chi2"] == pytest.approx(10.0) and "descriptive only" in m["note"]
+    assert pr.paired_reading([True] * 30, [False] * 15 + [True] * 15, films)["mde_80pct_power"] == list(pr.MDE_RANGE)
+
+
+def test_f3a_a_crash_after_the_model_saw_the_fresh_clips_still_counts_as_a_look(notebook, tmp_path, monkeypatch):
+    class Crashes(StandInPipe):
+        def evaluate(self, records, labels, batch_size=8):
+            if records and str(records[0].get("id", "")).startswith("hmdb51-train-"):
+                raise MemoryError("stand-in OOM")
+            return super().evaluate(records, labels, batch_size)
+
+    with pytest.raises(MemoryError):
+        _run8(notebook, tmp_path, monkeypatch, pipe=Crashes(adapter()))
+    ns, fetched, pipe = _run8(notebook, tmp_path, monkeypatch)
+    assert ns["test_look"] == pr.TEST_LOOKS[1] and not _report(tmp_path).exists() and _report(tmp_path, "_reproduction_1").is_file()
+
+
+def test_f3b_report_is_written_before_the_scored_ledger_entry(notebook, tmp_path, monkeypatch):
+    source = _section8(notebook)
+    assert source.index("append_look(LOOK_LOG, {'event': 'attempt'") < source.index("pipe.evaluate_base(fresh_records")
+    assert source.index("report_path = write_json_atomic(") < source.index("append_look(LOOK_LOG, scored_entry)")
+    _run8(notebook, tmp_path, monkeypatch)
+    lines = (tmp_path / "outputs" / f"{STEM}_test_looks.jsonl").read_text(encoding="utf-8").splitlines()
+    assert [json.loads(line)["event"] for line in lines] == ["attempt", "scored"]
+
+
+def test_f3c_an_unparsable_ledger_line_counts_as_a_prior_look(tmp_path):
+    log = tmp_path / "looks.jsonl"
+    log.write_text('{"event": "attempt"\n', encoding="utf-8")
+    assert pr.look_at_test([], log, tmp_path / "none.json") == pr.TEST_LOOKS[1]
+    log.write_text("\n", encoding="utf-8")
+    assert pr.look_at_test([], log, tmp_path / "none.json") == pr.TEST_LOOKS[0]
+
+
+def test_f2_a_split_record_without_a_film_key_refuses_before_any_model_sees_the_fresh_test(notebook, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "outputs").mkdir()
+    monkeypatch.delenv(pr.MASK_ENV, raising=False)
+    pipe, fetched = StandInPipe(adapter()), []
+    ns = namespace(pipe, grid(), fetched)
+    ns["splits"] = {"train": [{"id": "x", "frames": [0]}], "validation": [], "test": []}
+    with pytest.raises(RuntimeError, match="no film key"):
+        exec(_section8(notebook), ns)
+    assert pipe.fresh_calls == 0 and not (tmp_path / "outputs" / f"{STEM}_test_looks.jsonl").exists()
+
+
+def test_masked_fetch_and_decode_check_runs_without_a_model(notebook, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "outputs").mkdir()
+    monkeypatch.setenv(pr.MASK_ENV, "1")
+    monkeypatch.setenv(pr.FETCH_CHECK_ENV, "1")
+    pipe, fetched = StandInPipe(adapter()), []
+    exec(_section8(notebook), namespace(pipe, grid(), fetched))
+    report = json.loads(_report(tmp_path, "_exploratory_1").read_text(encoding="utf-8"))
+    assert fetched == [{"check": {"cache_dir": "weights/hmdb51"}}] and pipe.fresh_calls == 0
+    assert report["fresh_fetch_check"]["decoded"] == len(FRESH) and report["fresh_test"] is None
+    assert not (tmp_path / "outputs" / f"{STEM}_test_looks.jsonl").exists()
+
+
+def test_f4_f8_device_and_fresh_baselines_are_reported(notebook, tmp_path, monkeypatch):
+    _run8(notebook, tmp_path, monkeypatch)
+    report = json.loads(_report(tmp_path).read_text(encoding="utf-8"))
+    assert report["device"]["device"] == "cpu" and report["fresh_test"]["device"]["device"] == "cpu"
+    assert set(report["fresh_test"]["baselines"]) == {"chance", "majority"}
+    assert report["amendments"] == list(pr.AMENDMENTS)
+
+
+def test_f7_majority_per_label_rates_do_not_depend_on_label_order():
+    labels = ["a", "b", "c", "d"]
+    train = [{"label": x} for x in "aabbcd"]
+    test = [{"label": x} for x in "abcd"]
+    one, two = mt.majority_baseline(train, test, labels), mt.majority_baseline(train, test, ["b", "a", "c", "d"])
+    for label in labels:
+        assert one["per_label"][label]["recall"] == pytest.approx(two["per_label"][label]["recall"])
+    assert one["per_label"]["a"]["recall"] == pytest.approx(0.5)
+
+
+def test_f11_adapted_drawings_carry_the_run_suffix(notebook):
+    assert "rank_drawings(pipe, 'adapted' + RUN_SUFFIX)" in _cell(notebook, "examples_dir = Path(")

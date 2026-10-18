@@ -3,8 +3,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import time
+import types
 from pathlib import Path
 
 from xclip_video_classification_pipeline import metrics as mt
@@ -53,6 +56,7 @@ class StandInPipe:
     def __init__(self, adapter_record: dict, head: str = "h"):
         self.adapter = adapter_record
         self.head = head
+        self.device = "cpu"
         self.fresh_calls = 0
 
     def head_digest(self):
@@ -78,8 +82,13 @@ def namespace(pipe: StandInPipe, grid_record, fetch_log: list, *, split_seed: in
         fetch_log.append(kwargs)
         return list(FRESH)
 
+    def check_fresh_test(**kwargs):
+        fetch_log.append({"check": kwargs})
+        return {"clips": len(FRESH), "decoded": len(FRESH)}
+
     ns.update({
-        "pipe": pipe, "grid_record": grid_record, "fetch_fresh_test": fetch_fresh_test, "clip_digest": lambda frames: f"clip-{frames}",
+        "pipe": pipe, "grid_record": grid_record, "fetch_fresh_test": fetch_fresh_test, "check_fresh_test": check_fresh_test,
+        "hashlib": hashlib, "os": os, "torch": types.SimpleNamespace(cuda=types.SimpleNamespace(get_device_name=lambda i: "stand-in GPU")), "clip_digest": lambda frames: f"clip-{frames}",
         "train_records": [], "val_records": [], "test_records": [], "splits": {"train": [], "validation": [], "test": []},
         "time": time, "json": json, "Path": Path, "LABELS": LABELS, "EVAL_BATCH_SIZE": 8, "METRICS": METRICS,
         "baseline_chance": metrics_for(0.5), "baseline_majority": metrics_for(0.25), "frozen_test": metrics_for(0.75), "frozen_verdict": "pre-trained model above both baselines",

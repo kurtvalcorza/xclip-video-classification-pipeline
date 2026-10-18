@@ -104,13 +104,21 @@ def majority_label(train: Sequence[Mapping[str, Any]], labels: Sequence[str]) ->
     return max(label_set, key=lambda label: (counts.get(label, 0), -label_set.index(label)))
 
 
+def _mean_or_none(values: Sequence[Any]) -> float | None:
+    """Mean of the defined values (a rate undefined for some tie-break choices, e.g. precision of a never-predicted
+    label, averages over the choices where it is defined); None when none is defined."""
+    defined = [v for v in values if v is not None]
+    return sum(defined) / len(defined) if defined else None
+
+
 def majority_baseline(
     train: Sequence[Mapping[str, Any]], records: Sequence[Mapping[str, Any]], labels: Sequence[str]
 ) -> dict[str, Any]:
     """Rank the labels by training frequency for every clip, with ties broken uniformly at random, and report the
     EXPECTED rates over that tie-break (review R113-S1): no rate depends on label-set order. Top-k counts a clip's label
     with probability min(1, max(0, k - above) / tied), where `above` labels are strictly more frequent and `tied` share
-    its frequency; top-1, macro recall and macro F1 are averaged over the labels tied for the most frequent."""
+    its frequency; top-1, macro recall, macro F1, the per-label rates and the confusion counts are averaged over the
+    labels tied for the most frequent."""
     label_set = list(format_labels(labels))
     counts = Counter(format_labels([r["label"], "__other__"])[0] for r in train)
     freq = {label: counts.get(label, 0) for label in label_set}
@@ -132,6 +140,18 @@ def majority_baseline(
         return total / n
 
     out = dict(per_choice[0])
+    k = len(per_choice)
+    out["per_label"] = {
+        label: {key: _mean_or_none([m["per_label"][label][key] for m in per_choice]) for key in per_choice[0]["per_label"][label]}
+        for label in per_choice[0]["per_label"]
+    }
+    confusion: dict[str, dict[str, float]] = {}
+    for m in per_choice:
+        for ref, row in (m.get("confusion") or {}).items():
+            for pred, count in row.items():
+                confusion.setdefault(ref, {}).setdefault(pred, 0.0)
+                confusion[ref][pred] += count / k
+    out["confusion"] = confusion
     for key in ("top1_accuracy", "macro_recall", "macro_f1"):
         out[key] = sum(m[key] for m in per_choice) / len(per_choice)
     out["top3_accuracy"] = expected_top(TOP_K)

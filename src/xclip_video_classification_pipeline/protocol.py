@@ -25,6 +25,10 @@ from .pipeline import GRAD_CLIP
 from .samples import FRESH_TEST_LIST_SHA256, SAMPLE_CLASS_TEXT, SAMPLE_SEED
 
 PREREGISTRATION = "docs/xclip-preregistration.md"
+AMENDMENTS = ("docs/xclip-preregistration-amendment-1.md",)
+FETCH_CHECK_ENV = "DIMER_FRESH_FETCH_CHECK"
+# Amendment 1, A4: 80 % power minimum detectable paired top-1 difference on 669 clips (assumed d 0.10-0.20, ICC 0-0.3).
+MDE_RANGE = (0.034, 0.067)
 DEFAULT_LR = 1e-5
 GRID_LRS = (1e-5, 5e-6, 2e-5)  # C0 (default), C1, C2
 GRID_MARGIN_CLIPS = 2  # validation clips; a practical tolerance, not a significance threshold
@@ -73,6 +77,11 @@ _ADAPTER_KEYS = ("lr", "epochs", "batch_size", "seed", "best_epoch", "n_train", 
 
 def fresh_test_masked() -> bool:
     return os.environ.get(MASK_ENV, "").strip() not in ("", "0")
+
+
+def fresh_fetch_check_requested() -> bool:
+    """Masked runs only: also fetch, verify and decode the fresh test, without a model (amendment-1 round)."""
+    return fresh_test_masked() and os.environ.get(FETCH_CHECK_ENV, "").strip() not in ("", "0")
 
 
 def run_fingerprint(*, data_source: str, split_seed: int, train_digest: str, validation_digest: str, label_text_sha256: str,
@@ -170,13 +179,21 @@ def read_looks(log_path: str | Path) -> list[dict[str, Any]]:
     except (OSError, UnicodeDecodeError):
         return [{"test_look": TEST_LOOKS[1], "note": "unreadable look log"}]
     for line in lines:
+        if not line.strip():
+            continue
         try:
             entry = json.loads(line)
         except ValueError:
-            continue
-        if isinstance(entry, dict):
-            out.append(entry)
+            entry = None
+        # Fail safe, like the unreadable-file branch: a line that cannot be read counts as a prior look.
+        out.append(entry if isinstance(entry, dict) else {"test_look": TEST_LOOKS[1], "note": "unparsable ledger line"})
     return out
+
+
+def is_look(entry: Mapping[str, Any]) -> bool:
+    """A ledger entry that counts as a look at the fresh test: an `attempt` (a model was about to see the fresh clips),
+    a `scored` entry, or any entry labelled with a scored test_look."""
+    return entry.get("event") in ("attempt", "scored") or entry.get("test_look") in TEST_LOOKS[:2]
 
 
 def look_at_test(differing: Sequence[str], log_path: str | Path, canonical: str | Path, *, masked: bool = False) -> str:
@@ -187,7 +204,7 @@ def look_at_test(differing: Sequence[str], log_path: str | Path, canonical: str 
         return TEST_LOOKS[2]
     if masked:
         return TEST_LOOKS[3]
-    if any(e.get("test_look") in TEST_LOOKS[:2] for e in read_looks(log_path)) or Path(canonical).exists():
+    if any(is_look(e) for e in read_looks(log_path)) or Path(canonical).exists():
         return TEST_LOOKS[1]
     return TEST_LOOKS[0]
 
@@ -267,6 +284,10 @@ def paired_reading(frozen_correct: Sequence[bool], selected_correct: Sequence[bo
     lo, hi = draws[int(0.025 * n_boot)], draws[min(n_boot - 1, int(math.ceil(0.975 * n_boot)) - 1)]
     b = sum(1 for x, y in zip(f, s, strict=True) if x and not y)
     c = sum(1 for x, y in zip(f, s, strict=True) if y and not x)
+    # Amendment 1, A5: cluster-adjusted McNemar (Durkalski et al. 2003), films as clusters; descriptive only.
+    per_film = [sum(int(s[i]) - int(f[i]) for i in idx) for idx in clusters]
+    denom = sum(d * d for d in per_film)
+    x2 = (sum(per_film) ** 2 / denom) if denom else 0.0
     if selected_system == "frozen":
         verdict = "no demonstrated gain (the frozen model was kept on validation)"
     elif lo > 0:
@@ -274,8 +295,11 @@ def paired_reading(frozen_correct: Sequence[bool], selected_correct: Sequence[bo
     elif hi < 0:
         verdict = "adapted is worse"
     else:
-        verdict = "no demonstrated gain"
+        verdict = f"no demonstrated gain (not detectable at this size: a true gain below about {MDE_RANGE[0]:.2f}-{MDE_RANGE[1]:.2f} often reads this way)"
     return {"n": n, "films": len(clusters), "frozen_top1": sum(f) / n, "selected_top1": sum(s) / n, "delta_top1": delta,
             "ci95": [lo, hi], "n_boot": n_boot, "seed": seed, "resampled": "films (strict film key)",
-            "mcnemar": {"frozen_only_correct": b, "selected_only_correct": c, "exact_p_two_sided": _binom_two_sided(b, c)},
+            "mcnemar": {"frozen_only_correct": b, "selected_only_correct": c, "exact_p_two_sided": _binom_two_sided(b, c),
+                        "clustered_chi2": x2, "clustered_p": math.erfc(math.sqrt(x2 / 2)),
+                        "note": "descriptive only: the exact p assumes independent clips; the clustered p (Durkalski 2003) treats films as clusters; the verdict is the bootstrap interval"},
+            "mde_80pct_power": list(MDE_RANGE),
             "selected_system": selected_system, "verdict": verdict}

@@ -562,7 +562,7 @@ TEMPLATE = {
                 "if fresh_test_scored(test_look):\n"
                 "    t0 = time.perf_counter()\n"
                 "    fresh_records = fetch_fresh_test(cache_dir='weights/hmdb51')\n"
-                "    used_films = {{r['film'] for part in splits.values() for r in part}}\n"
+                "    used_films = {{r.get('film') for part in splits.values() for r in part}} - {{None}}\n"
                 "    used_clips = {{clip_digest(r['frames']) for part in splits.values() for r in part}}\n"
                 "    shared = sorted({{r['film'] for r in fresh_records}} & used_films)\n"
                 "    if shared or any(clip_digest(r['frames']) in used_clips for r in fresh_records):\n"

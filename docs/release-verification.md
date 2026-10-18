@@ -159,6 +159,35 @@ stated runtime, not general estimates.
 | 2026-09-20 | package API at the working tree of `feat/e2e-video-classification-adaptation` (pre-flight, not the notebook blob) | Windows venv `dimer-xclip` (`torch 2.14.0+cpu`, `transformers 4.57.6`, `av 18.1.0`, Python 3.12.10, `cpu`, float32), `CUDA_VISIBLE_DEVICES=-1`, `HF_HUB_OFFLINE=1`, row group cached | the CPU recipe sweep on the default split (181 / 53 / 66): frozen 0.803 top-1 / 0.939 top-3 / 0.792 macro F1; head-logits parity with the full forward 3.8e-6; lr 2e-5 / 5e-5 / 1e-4 × 10 epochs all peak in epoch 1 (test 0.909 / 0.894 / 0.848); lr 1e-5 × 8 rises 0.811 → 0.925 → 0.962 on validation (epoch 2 kept), test **0.909 / 0.985 / 0.905**; lr 5e-6 × 8 reaches the same test top-1 at epoch 5; artifact 40,996,184 B, reload parity 8/8; the model-backed suite 6 passed, 1 skipped (CUDA) | ~70 s decode + ~60 s per arm | PASS — pre-flight only; fixed the recipe at lr 1e-5 × 8; not promotion evidence |
 | 2026-09-14 | `79b1285` / `51f0d714b933` (`TASK-INFERENCE`, superseded) | Kaggle CPU (`kurtvalcorza/dimer-nb2-xclip-video-classification` v1) | Default sample path, `Run all` from a fresh interpreter, no repository checkout | 212.9 s | PASSED — 8/8 code cells, 20 files, 790 MB staged; not evidence for the `E2E` blob |
 
+## Pre-registered grid, fresh test and score-once (B1 review fix, 2026-10-18)
+
+- **Disclosure (R113-M1).** The 2026-09-20 CPU pre-flight in the table above read the **test** scores of all five
+  learning-rate arms (2e-5, 5e-5 and 1e-4 × 10 epochs; 1e-5 and 5e-6 × 8) before fixing lr 1e-5 × 8; validation was
+  recorded for the chosen arm only. The 66 test clips are therefore the **exposed development test** from now on.
+- **Pre-registration** `docs/xclip-preregistration.md`, committed alone first (`134af58`) before any grid run of the
+  protocol or any fresh-test score: grid lr {1e-5 (default), 5e-6, 2e-5} × 8 epochs on validation with a two-clip
+  margin and ties to the default, keep-frozen unless beaten by two clips, the fresh test (682 clips, list SHA-256
+  `ac0144fa…bc04`, row groups 0–2 of `default/train/0000.parquet`), and the reading rule (paired top-1 difference,
+  film bootstrap n_boot 2000 seed 113, McNemar counts; "adapted helps" only if the interval excludes 0).
+- **Score-once.** The fresh test is scored only under the pre-registered settings (SCORE_ONCE_RULE). The first hosted
+  T4 run with those settings is **the evaluation of record**; later identical runs are reproductions.
+  `protocol.RECORDED_EVALUATION` is `None` until that run. **No hosted fresh-test run is recorded yet.**
+- **CPU development check, fresh test MASKED** (SCORE_ONCE_RULE 8; `DIMER_MASK_FRESH_TEST=1`), 2026-10-18, code at
+  commit `6840787` (working-tree notebook regenerated from it), Windows venv `torch 2.14.0+cpu`, float32, 310 s.
+  Nothing was read from the fresh test; no setting was changed after it. `settings_differing` = [] (the gate passes
+  with real inputs). Grid, kept-epoch validation top-1 on 53 clips: 1e-5 51 (epoch 2), 5e-6 51 (epoch 5), 2e-5 51
+  (epoch 1); frozen 43. **Selected: 1e-5** (no challenger won by two clips). Exposed development test (old = Colab T4
+  `adcb4e8` → this CPU run): frozen top-1 0.803 → 0.803, adapted 0.909 → 0.909, top-3 0.985 → 0.985, macro F1
+  0.905 → 0.905; majority baseline (now an expected value over the cartwheel / clapping tie) top-1 0.091 → 0.091,
+  top-3 0.288 → 0.273, macro F1 0.017. Reload parity 8 / 8. A CPU build record pending the hosted run, not
+  clean-runtime evidence.
+- **R113-S2.** `docs/execution-evidence/2026-10-09-adcb4e8/exec.log`: two lines, the executor home-directory run path →
+  `<local-run-dir>/` in commit `500c44c`. SHA-256 before
+  `e66895d7b572d0a147413862eb0c1208bce28ed9d80fa7122b34d6a461df564a`, after
+  `33c082aef15a974912ea961d884295117556919caf5c4b53b0f70c9448a7e5d1` (the executed notebook and run_summary.json are
+  unchanged; run_summary.json carries no log digest).
+- Spec: generator `build_notebook.py/2.5`, `notebook_spec` 2.5, `notebook_kind` TUTORIAL, use notice (DOC17).
+
 ## Current status
 
 **Candidate** (2026-10-09). **Colab T4 one-pass run of the isolated-environment revision (2026-10-09).** Commit `adcb4e8` / blob `41caa483bb88` (generator `build_notebook.py/2.2`, `notebook_spec` 2.2, hash-locked isolated uv environment, worker `google.colab` stubs with a `ModuleSpec`) executed in one pass with no restart and 0 errors on a fresh Colab Tesla T4 (Colab CLI 0.7.4 sequential execution, not a browser `Run all`; 13/13 code cells, 182.3 s wall, `cuda:0`); evidence in `docs/execution-evidence/2026-10-09-adcb4e8/`. The status stays Candidate (REL14): the BYOD journeys (REL12), the `SPLIT_SEED` re-run and the optional Section 10 experiment were not hosted-run. The 2026-09-21 Kaggle T4 run of blob `1e9956b7` (11/11 ok, one restart after the install cell; the blob is on `main` via `79e91a2`) is history.
@@ -172,4 +201,4 @@ cannot see in 8 frames at 224 px stays unseen; the head that was tuned ranks eve
 re-ranked after adaptation are the only evidence about what happened outside the label set. The forward pass is
 deterministic on a fixed device and dtype, but the training of the head is not bit-reproducible across GPUs, and 66
 clips make one clip 1.5 points, so a Kaggle number a few points off the build record is the expected spread, not a
-finding. The Tesla T4 run reproduced the CPU sweep's numbers exactly (0.909 / 0.985 / 0.905 at epoch 2). This row has no sibling on its corpus — X-CLIP is the fleet's only video model — so the comparison is the frozen prompts against the tuned head on the same 66 clips: the gain comes from four labels (`chewing` 0.43 → 0.86, `diving into water` 0.67 → 1.00, `drawing a sword` 0.71 → 1.00, `clapping hands` 0.50 → 0.67) while `dribbling a basketball` lost one clip (0.71 → 0.57), and the five drawn cartoon clips stay at chance before and after (every clip but one is called `a ball standing still`): the head learned the ten HMDB51 actions, not motion in general.
+finding. The Tesla T4 run reproduced the CPU sweep's exposed-development-test numbers (0.909 / 0.985 / 0.905 at epoch 2). This row has no sibling on its corpus — X-CLIP is the fleet's only video model — so the comparison is the frozen prompts against the tuned head on the same 66 clips: the gain comes from four labels (`chewing` 0.43 → 0.86, `diving into water` 0.67 → 1.00, `drawing a sword` 0.71 → 1.00, `clapping hands` 0.50 → 0.67) while `dribbling a basketball` lost one clip (0.71 → 0.57), and the five drawn cartoon clips stay at chance before and after (every clip but one is called `a ball standing still`): the head learned the ten HMDB51 actions, not motion in general.

@@ -317,3 +317,12 @@ def test_s2_no_local_absolute_paths_in_committed_evidence():
             text = path.read_text(encoding="utf-8", errors="replace")
             for needle in ("/home/kurt", "Users\\Kurt", "Users/Kurt", "KURTVA~1"):
                 assert needle not in text, f"{path.name}: {needle}"
+
+
+def test_m2r_validation_keeps_the_film_key_so_overlap_checks_see_it():
+    from PIL import Image
+
+    frames = [Image.new("RGB", (32, 24), (i, 0, 0)) for i in range(8)]
+    records = [{"id": f"c{i}", "frames": frames, "label": "brushing hair" if i % 2 else "chewing", "source": f"s{i}", "film": f"f{i}"} for i in range(16)]
+    checked = sm.validate_dataset(records, ["brushing hair", "chewing"], min_per_class=1)["records"]
+    assert [r["film"] for r in checked] == [f"f{i}" for i in range(16)]

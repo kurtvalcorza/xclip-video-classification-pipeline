@@ -384,7 +384,7 @@ def _check_record(record: Any, index: int, labels: Sequence[str] | None) -> dict
     if labels is not None and label not in labels:
         raise ValueError(f"{where}: label {label!r} is not in the label set {list(labels)}")
     item = {"id": rid, "frames": frames, "label": label}
-    for key in ("class", "source", "source_row_group"):
+    for key in ("class", "source", "film", "source_row_group"):
         if key in record:
             item[key] = record[key]
     return item

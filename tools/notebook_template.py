@@ -85,13 +85,13 @@ TEMPLATE = {
         "chance and a majority-label baseline, runs a pre-registered three-value learning-rate grid of bounded fine-tunings of the "
         "fusion head on cached tower features, compared on validation only, and keeps the selected run, scores the exposed "
         "development test again, then — only when every pre-registered setting holds — fetches the **fresh test** (669 "
-        "never-scored HMDB51 split-1 training clips of the same ten classes, about 300 MB more of pinned row groups) and scores "
+        "HMDB51 split-1 training clips of the same ten classes, first scored by the 2026-10-18 evaluation of record; about 300 MB more of pinned row groups) and scores "
         "the frozen model and the selected system on it with the pre-registered reading rule, re-runs six held-out clips and the five drawn "
         "clips with the adapted model, exports the adapter as safetensors with a manifest, and reloads that artifact into a "
         "fresh pipeline to verify ranking parity. The default path needs no repository clone, no DIMER worker or service, no "
-        "credential, no upload dialog and no configuration edit (NOTEBOOK_SPEC 2.5 §5). On a Tesla T4 the earlier single-run "
-        "path took about 2 minutes of cell time (eight epochs 12 s, frozen scoring of 66 clips 3 s); the grid runs three "
-        "such fine-tunings and the fresh test adds its download, decoding and two scorings (not yet measured on a T4); a CUDA runtime is used automatically when present, and the path is practical on CPU too (the "
+        "credential, no upload dialog and no configuration edit (NOTEBOOK_SPEC 2.5 §5). On a Colab T4 the whole default "
+        "path (isolated install, downloads, the three-run grid and the fresh test) took 390.5 s (about 6.5 minutes) in the pre-registered evaluation of record (Colab T4, commit 1bf9b91 / blob 0c9b1f0f, 2026-10-18) "
+        "(isolated environment 62 s, sample fetch and decode 39.3 s, frozen scoring of 66 clips 3.8 s; the fresh test's download and scoring are not timed separately); a CUDA runtime is used automatically when present, and the path is practical on CPU too (the "
         "build venv decoded the 300 clips in about 70 s, scored the test split in 10 s and ran the eight epochs in about 60 s)."
     ),
     "byod": (
@@ -117,11 +117,11 @@ TEMPLATE = {
         "human-action clips of ten HMDB51 classes — brushing hair, doing a cartwheel, catching a ball, chewing, clapping "
         "hands, climbing, climbing stairs, diving into water, drawing a sword, dribbling a basketball — cut from films and "
         "web videos; the frozen model already ranks the right class first for **0.803** of the 66 held-out clips in "
-        "the Colab T4 run of blob 41caa483 (commit adcb4e8, 2026-10-09), on clips that are now the exposed development test (chance is 0.100), so the honest question is narrow: does a bounded fine-tuning of the fusion head "
+        "the pre-registered evaluation of record (Colab T4, commit 1bf9b91 / blob 0c9b1f0f, 2026-10-18), on the exposed development test (chance is 0.100), so the honest question is narrow: does a bounded fine-tuning of the fusion head "
         "— the frame-integration transformer, the two visual projections and the prompt generator, 10,247,680 of the "
         "parameters — on 181 clips move the held-out **top-1 accuracy**, **top-3 accuracy**, **macro recall** and **macro F1** "
-        "on a fresh, never-scored test past the frozen model and two **non-adapted baselines**, read with a pre-registered rule, and what does it do to the "
-        "drawn clips the same head ranks? Nothing here is a claim about your videos or your classes: it is one seeded split "
+        "on a fresh test, scored only under the pre-registered settings, past the frozen model and two **non-adapted baselines**, read with a pre-registered rule, and what does it do to the "
+        "drawn clips the same head ranks? In the pre-registered evaluation of record (Colab T4, commit 1bf9b91 / blob 0c9b1f0f, 2026-10-18) the fresh-test top-1 went from 0.786 (frozen) to 0.895 (adapted): +0.109, film-bootstrap 95% interval [0.066, 0.151], read as **adapted helps**. Nothing here is a claim about your videos or your classes: it is one seeded split "
         "of one small labelled set.\n\n"
         "**Snapshot note:** the pinned revision ships `model.safetensors` (a 9-file manifest with the tokenizer and processor "
         "files) — no pickle is opened anywhere in this notebook. Section 3 stages and digest-verifies those files before the "
@@ -131,7 +131,7 @@ TEMPLATE = {
     "guided": {
         "opening": [
             (
-                "**Who this notebook is for.** A learner who knows basic Python, has used Colab or Jupyter, and wants to see how a pretrained video–text model is adapted to a closed label set with a small labelled clip set, and how to read the result honestly — including what the pre-training already covered. No prior experience with video models or fine-tuning is assumed; each term is explained where it first matters and again in the **Glossary** at the end. CPU is adequate; a GPU is faster.\n\n**Input → Model → Output.**\n\n| | Ranking a clip | Bounded fine-tuning |\n|---|---|---|\n| Input | one clip of 8 frames and 2–32 free-text class names | labelled clips: 181 training and 53 validation HMDB51 clips in the sample, split by source video |\n| Model | X-CLIP base/32: a CLIP frame encoder with cross-frame attention, a frame-integration transformer, a text encoder and a prompt generator | the fusion head (10.2 M parameters) trained with cross-entropy over the label set on cached tower features; validation top-1 chooses the epoch |\n| Output | a ranking of the names with a softmax over them — relative, not calibrated | a safetensors adapter, and held-out top-1 / top-3, macro recall and macro F1 beside two baselines |\n\n**How to use this notebook.** Choose a runtime (CPU works; a GPU is faster), then **Runtime → Run all**. Run all completes in one pass: Section 1 installs nothing into the notebook's own Python, so no restart is needed. Sections 1–3 are **infrastructure** — the isolated environment, the carried package and the model snapshot — and their cells are collapsed; you may run them without studying them. The learning path starts in Section 4. Form fields (`# @param`) are the only values meant to be edited, and the defaults reproduce the recorded run. Before each principal result the notebook asks you to **Predict**; after it come **What to notice** and a collapsible **Check your reasoning** with a worked answer that names the run it quotes — the Colab T4 run of blob 41caa483 (commit adcb4e8, 2026-10-09), whose test numbers are on the exposed development test. Section 10 is a **change-one-thing experiment**, off by default. **Troubleshooting**, a **Glossary** and a **Conclusion** template are at the end. Writing your predictions down is optional.\n\n**Roadmap:** 1–3 infrastructure → 4 HMDB51 clips and a source-grouped split *(evaluation practice)* → 5 ranking drawn clips through the inference contract *(core concept: a softmax over your labels)* → 6 baselines and the pre-trained model, with its Kinetics-400 overlap *(evaluation practice)* → 7 fine-tuning the fusion head *(core concept)* → 8 held-out evaluation → 9 clips, drawings, export and reload *(engineering)* → 10 change one thing (optional) → conclude."
+                "**Who this notebook is for.** A learner who knows basic Python, has used Colab or Jupyter, and wants to see how a pretrained video–text model is adapted to a closed label set with a small labelled clip set, and how to read the result honestly — including what the pre-training already covered. No prior experience with video models or fine-tuning is assumed; each term is explained where it first matters and again in the **Glossary** at the end. CPU is adequate; a GPU is faster.\n\n**Input → Model → Output.**\n\n| | Ranking a clip | Bounded fine-tuning |\n|---|---|---|\n| Input | one clip of 8 frames and 2–32 free-text class names | labelled clips: 181 training and 53 validation HMDB51 clips in the sample, split by source video |\n| Model | X-CLIP base/32: a CLIP frame encoder with cross-frame attention, a frame-integration transformer, a text encoder and a prompt generator | the fusion head (10.2 M parameters) trained with cross-entropy over the label set on cached tower features; validation top-1 chooses the epoch |\n| Output | a ranking of the names with a softmax over them — relative, not calibrated | a safetensors adapter, and held-out top-1 / top-3, macro recall and macro F1 beside two baselines |\n\n**How to use this notebook.** Choose a runtime (CPU works; a GPU is faster), then **Runtime → Run all**. Run all completes in one pass: Section 1 installs nothing into the notebook's own Python, so no restart is needed. Sections 1–3 are **infrastructure** — the isolated environment, the carried package and the model snapshot — and their cells are collapsed; you may run them without studying them. The learning path starts in Section 4. Form fields (`# @param`) are the only values meant to be edited, and the defaults reproduce the recorded run. Before each principal result the notebook asks you to **Predict**; after it come **What to notice** and a collapsible **Check your reasoning** with a worked answer that names the run it quotes — the pre-registered evaluation of record (Colab T4, commit 1bf9b91 / blob 0c9b1f0f, 2026-10-18), which reports the exposed development test and the fresh test. Section 10 is a **change-one-thing experiment**, off by default. **Troubleshooting**, a **Glossary** and a **Conclusion** template are at the end. Writing your predictions down is optional.\n\n**Roadmap:** 1–3 infrastructure → 4 HMDB51 clips and a source-grouped split *(evaluation practice)* → 5 ranking drawn clips through the inference contract *(core concept: a softmax over your labels)* → 6 baselines and the pre-trained model, with its Kinetics-400 overlap *(evaluation practice)* → 7 fine-tuning the fusion head *(core concept)* → 8 held-out evaluation → 9 clips, drawings, export and reload *(engineering)* → 10 change one thing (optional) → conclude."
             )
         ]
     },
@@ -155,7 +155,7 @@ TEMPLATE = {
     ),
     "prerequisites": [
         "- **Learner:** basic Python and Colab or Jupyter familiarity; no prior experience with video models or fine-tuning. The notebook explains cross-frame attention, the frame-integration transformer, the prompt generator, the frozen-tower cache, top-k accuracy, macro recall and source grouping where they are first used; the Glossary repeats them.",
-        "- **Runtime:** a fresh supported **Linux x86_64** runtime (Google Colab, Kaggle or Linux Jupyter; CPU or CUDA). Section 1 builds its own Python 3.12.12 environment from a hash-locked list of manylinux wheels (PyAV included), so the kernel's own Python version does not matter and nothing is installed into it. The default path uses CUDA automatically when present. The vision tower runs `EVAL_BATCH_SIZE` clips (8 × 8 frames) per forward and the build record measured 3 s to score 66 clips and 12 s for the eight epochs (caching the tower features for 181 + 53 clips took 6 s) on a Tesla T4, about 2 minutes of cell time for the whole path including the pinned install and the downloads; the build venv's CPU ran the same path in a few minutes. The pinned `torch==2.14.0` install, the 786 MB checkpoint and the 113 MB row group are the large downloads of the run.",
+        "- **Runtime:** a fresh supported **Linux x86_64** runtime (Google Colab, Kaggle or Linux Jupyter; CPU or CUDA). Section 1 builds its own Python 3.12.12 environment from a hash-locked list of manylinux wheels (PyAV included), so the kernel's own Python version does not matter and nothing is installed into it. The default path uses CUDA automatically when present. The vision tower runs `EVAL_BATCH_SIZE` clips (8 × 8 frames) per forward and the pre-registered evaluation of record (Colab T4, commit 1bf9b91 / blob 0c9b1f0f, 2026-10-18) measured 3.8 s to score 66 clips, 6.7 s to cache the tower features for 181 + 53 clips and 390.5 s (about 6.5 minutes) for the whole default path, including the pinned install, the downloads, the three-run grid and the fresh test; the build venv's CPU ran the same path in a few minutes. The pinned `torch==2.14.0` install, the 786 MB checkpoint and the 113 MB row group are the large downloads of the run.",
         "- **Knowledge:** basic Python, NumPy and PIL; what a contrastive video–text model scores and why a softmax over a label set you chose is a ranking and not a probability; what top-1 accuracy, macro recall and macro F1 measure on a closed label set and why 66 clips give no dispersion; why clips cut from one source video must stay in one split.",
         "- **Data contract:** records are `{id, frames, label}` — `frames` exactly `NUM_FRAMES` (8) PIL frames of one size with sides within 16..4,096 px (a longer clip is subsampled uniformly by `sample_frames`; a container file is decoded by `decode_clip`), `label` one of the closed label set (normalised like the candidate names: stripped, lower-cased, trailing full stop removed), and an optional `source` naming the video the clip was cut from. Ids match `[A-Za-z0-9_.:-]{1,64}` and are unique; a dataset needs 16..5,000 records, at least two labels and at least two clips per label; splitting de-duplicates by decoded pixels and keeps every clip of one source in one split. BYOD accepts one zip (or directory) of clips plus a `labels.csv` in the layout named above.",
         "- **Validation is structural, not semantic:** every clip is decoded and every label checked against the set, but nothing checks that a label describes its clip — a mislabelled set is fine-tuned on without complaint.",
@@ -376,7 +376,7 @@ TEMPLATE = {
         },
         {
             "md": (
-                "**What to notice:** each drawn clip's top-1 and its probability, and the drawn-label top-1 rate.\n\n<details><summary>Check your reasoning</summary>No. In the Colab T4 run of blob 41caa483 (commit adcb4e8, 2026-10-09) the pre-trained model ranked `a ball standing still` first for all five drawn clips (probabilities 0.43–0.69), a drawn-label top-1 of 0.20. A softmax over five names you chose will always name one of them, confidently; the drawings are plumbing evidence, not a measurement.</details>"
+                "**What to notice:** each drawn clip's top-1 and its probability, and the drawn-label top-1 rate.\n\n<details><summary>Check your reasoning</summary>No. In the pre-registered evaluation of record (Colab T4, commit 1bf9b91 / blob 0c9b1f0f, 2026-10-18) the pre-trained model ranked `a ball standing still` first for all five drawn clips (probabilities 0.43–0.69), a drawn-label top-1 of 0.20. A softmax over five names you chose will always name one of them, confidently; the drawings are plumbing evidence, not a measurement.</details>"
             ),
         },
         {
@@ -420,7 +420,7 @@ TEMPLATE = {
         },
         {
             "md": (
-                "**What to notice:** the two baselines, the frozen top-1 / top-3 / macro F1, and the per-label recall.\n\n<details><summary>Check your reasoning</summary>In the Colab T4 run of blob 41caa483 (commit adcb4e8, 2026-10-09) the pre-trained model ranked the right label first for 0.803 of the 66 exposed-development-test clips (top-3 0.939, macro F1 0.792), against chance at 0.100 and a majority-label top-1 of 0.091 — below chance because both labels tied for most frequent in training are under-represented in this test split (that run broke the tie by label-set order; the expected-value baseline now reported does not). Its weakest labels were `chewing` (0.43), which has no Kinetics-400 counterpart, `clapping hands` (0.50), `diving into water` (0.67) and `drawing a sword` (0.71). Much of the 0.803 is recognition of classes the model was trained on, not transfer.</details>"
+                "**What to notice:** the two baselines, the frozen top-1 / top-3 / macro F1, and the per-label recall.\n\n<details><summary>Check your reasoning</summary>In the pre-registered evaluation of record (Colab T4, commit 1bf9b91 / blob 0c9b1f0f, 2026-10-18) the pre-trained model ranked the right label first for 0.803 of the 66 exposed-development-test clips (top-3 0.939, macro F1 0.792), against chance at 0.100 and a majority-label top-1 of 0.091 (top-3 0.273) — below chance because the two labels tied for most frequent in training, `doing a cartwheel` and `clapping hands`, are under-represented in this test split; the baseline is the expected value over that tie. Its weakest labels were `chewing` (0.43), which has no Kinetics-400 counterpart, `clapping hands` (0.50), `diving into water` (0.67), and `drawing a sword` and `dribbling a basketball` (0.71 each). Much of the 0.803 is recognition of classes the model was trained on, not transfer.</details>"
             ),
         },
         {
@@ -450,9 +450,9 @@ TEMPLATE = {
                 "honestly: the build's CPU check had all three at 51 of 53, so a challenger needs a perfect 53 to win; this grid "
                 "confirms the default rather than tests it, and the kept-epoch validation top-1 is a selection score (the best of "
                 "8 epochs on the clips that pick the epoch), not a performance estimate.\n\n"
-                "In the Colab T4 run of blob 41caa483 (commit adcb4e8, 2026-10-09) (lr 1e-5, before this grid) the validation top-1 rose from 0.811 to 0.962 at epoch 2 while the loss "
-                "dropped from about 0.44 to 0.00, and the sweep found that at 1e-4 a head this size memorises 181 clips within "
-                "an epoch or two — both read off the exposed sweep, not a fresh comparison.\n\n"
+                "In the pre-registered evaluation of record (Colab T4, commit 1bf9b91 / blob 0c9b1f0f, 2026-10-18) all three grid runs kept 51 of 53 validation clips (1e-5 at epoch 2, 5e-6 at epoch 5, 2e-5 at epoch 1), so 1e-5 stayed; at 1e-5 the validation top-1 rose from 0.811 to 0.962 at epoch 2 while the loss "
+                "dropped from about 0.44 to 0.00. The 2026-09-20 sweep found that at 1e-4 a head this size memorises 181 clips within "
+                "an epoch or two — read off the exposed sweep, not a fresh comparison.\n\n"
                 "*Core concept.* Every call to `pipe.adapt` starts from the **pinned base**: head tensors an earlier call (or an "
                 "artifact) changed are put back first, so epoch 0 is always the pre-trained model and re-running Sections 7–8 "
                 "with a changed field repeats the comparison validly. To compare a change side by side without replacing the "
@@ -507,7 +507,7 @@ TEMPLATE = {
         },
         {
             "md": (
-                '**What to notice:** the validation top-1 per epoch, the training loss, and `best_epoch`.\n\n<details><summary>Check your reasoning</summary>An early one: in the Colab T4 run of blob 41caa483 (commit adcb4e8, 2026-10-09) (lr 1e-5, before the grid existed) validation top-1 rose from 0.811 (epoch 0, the pre-trained model) to 0.962 and epoch 2 was kept, while the training loss fell towards zero — the head was memorising 181 clips. The earliest best epoch wins ties, so later epochs that only fit the training clips better are not chosen.</details>'
+                '**What to notice:** the validation top-1 per epoch, the training loss, and `best_epoch`.\n\n<details><summary>Check your reasoning</summary>An early one: in the pre-registered evaluation of record (Colab T4, commit 1bf9b91 / blob 0c9b1f0f, 2026-10-18) (the selected lr 1e-5 run of the grid) validation top-1 rose from 0.811 (epoch 0, the pre-trained model) to 0.962 and epoch 2 was kept, while the training loss fell towards zero — the head was memorising 181 clips. The earliest best epoch wins ties, so later epochs that only fit the training clips better are not chosen.</details>'
             ),
         },
         {
@@ -521,10 +521,13 @@ TEMPLATE = {
                 "**only under the pre-registered settings** (`docs/xclip-preregistration.md`): before it is touched this cell "
                 "re-checks every fixed setting, that the grid ran complete on this run's data and matches it, and that the model "
                 "in memory is the selected system (`head_sha256`). Any difference makes the run **exploratory**: validation and "
-                "the exposed development test only, written to `*_exploratory_<n>` files. A repeat in this runtime with identical "
-                "settings is a **reproduction** and writes `*_reproduction_<n>`; nothing overwrites the first report. Each "
-                "report carries `test_look`, `preregistered` and `settings_differing`; which run is the evaluation of record is "
-                "stated in `docs/release-verification.md` (`RECORDED_EVALUATION` is printed when set).\n\n"
+                "the exposed development test only, written to `*_exploratory_<n>` files. The evaluation of record is set "
+                "(`RECORDED_EVALUATION`, the 2026-10-18 Colab T4 run; `docs/release-verification.md`), so every run with identical "
+                "settings, the first one in a new runtime included, is a **reproduction**: it writes `*_reproduction_<n>` files, "
+                "never the main ones, and prints `reproduction_vs_record`, whether its fresh-test reading matches the record. Each "
+                "report carries `test_look`, `preregistered` and `settings_differing`. A scored run also prints the fresh test's "
+                "chance and majority baselines, top-3, macro recall and F1, per-label recall, timing and device "
+                "(`fresh_test_descriptive`): display only, they decide nothing.\n\n"
                 "**The reading rule (pre-registered):** the paired frozen-vs-selected top-1 difference on the same fresh clips, a "
                 "95% bootstrap interval resampling films (2,000 draws, seed 113), and the McNemar discordant counts. Read "
                 "**adapted helps** only if the interval excludes 0; otherwise **no demonstrated gain** — which means *not detectable "
@@ -560,7 +563,7 @@ TEMPLATE = {
                 "differing = settings_differing(settings_used, grid_record, fingerprint_now, model_state)\n"
                 "LOOK_LOG = 'outputs/{stem}_test_looks.jsonl'\n"
                 "canonical_report = Path('outputs/{stem}_evaluation_report.json')\n"
-                "test_look = look_at_test(differing, LOOK_LOG, canonical_report, masked=fresh_test_masked())\n"
+                "test_look = look_at_test(differing, LOOK_LOG, canonical_report, masked=fresh_test_masked(), recorded=RECORDED_EVALUATION)\n"
                 "RUN_SUFFIX = output_suffix(canonical_report, test_look)\n"
                 "selected_system = 'frozen' if pipe.adapter['best_epoch'] == 0 else 'adapted'\n"
                 "print({{'test_look': test_look, 'preregistered': not differing, 'settings_differing': differing, 'selected_system': f\"{{selected_system}} (lr {{settings_used['lr']:g}})\", 'recorded_evaluation': RECORDED_EVALUATION or 'none yet (set after the first hosted pre-registered run; see docs/release-verification.md)'}})\n"
@@ -592,6 +595,10 @@ TEMPLATE = {
                 "                    'per_clip': [{{'id': r['id'], 'film': r['film'], 'reference': r['label'], 'frozen_top1': f, 'selected_top1': s}} for r, f, s in zip(fresh_records, frozen_fresh['predictions'], selected_fresh['predictions'], strict=True)]}}\n"
                 "    scored_entry = {{'event': 'scored', 'run_id': run_id, 'test_look': test_look, 'file': f'outputs/{stem}_evaluation_report{{RUN_SUFFIX}}.json', 'reading_rule': reading, **device_used}}\n"
                 "    print({{'fresh_test': {{'n': len(fresh_records), 'frozen_top1': round(reading['frozen_top1'], 3), 'selected_top1': round(reading['selected_top1'], 3), 'delta_top1': round(reading['delta_top1'], 3), 'ci95': [round(x, 3) for x in reading['ci95']], 'mcnemar': reading['mcnemar'], 'verdict': reading['verdict']}}}})\n"
+                "    # Display only: the descriptive fresh-test figures the report holds; they decide nothing.\n"
+                "    print({{'fresh_test_descriptive': {{'baselines': {{name: {{metric: round(b[metric], 3) for metric in METRICS}} for name, b in fresh_report['baselines'].items()}}, 'frozen_vs_selected': fresh_report['descriptive'], 'per_label_recall': fresh_report['per_label_recall'], 'clips_per_label': fresh_report['per_label'], 'fetch_decode_seconds': fresh_seconds, 'device': device_used}}}})\n"
+                "    if test_look == TEST_LOOKS[1]:\n"
+                "        print({{'reproduction_vs_record': compare_with_record(reading, settings_used['lr'], RECORDED_EVALUATION)}})\n"
                 "    del fresh_records\n"
                 "else:\n"
                 "    print({{'fresh_test': test_look, 'scored': 'validation and the exposed development test only'}})\n"
@@ -634,7 +641,7 @@ TEMPLATE = {
         },
         {
             "md": (
-                '**What to notice:** `delta_vs_frozen`, the per-label recall rows and the `verdicts`.\n\n<details><summary>Check your reasoning</summary>Mostly the ones it missed. In the Colab T4 run of blob 41caa483 (commit adcb4e8, 2026-10-09), on the exposed development test (lr 1e-5, before the grid), top-1 rose from 0.803 to 0.909 (macro F1 0.792 → 0.905, top-3 0.939 → 0.985). The gain came from four labels — `chewing` 0.43 → 0.86, `diving into water` 0.67 → 1.00, `drawing a sword` 0.71 → 1.00, `clapping hands` 0.50 → 0.67 — while `dribbling a basketball` lost one clip (0.71 → 0.57). On 66 clips one clip is 1.5 points, and `chewing`, the label with no Kinetics-400 counterpart, is where tuning had most to add. Those 66 clips helped choose the recipe, so none of this is a fresh measurement; the reading rule on the fresh test is the result, and no hosted fresh-test run is recorded yet.</details>'
+                '**What to notice:** `delta_vs_frozen`, the per-label recall rows and the `verdicts`.\n\n<details><summary>Check your reasoning</summary>Mostly the ones it missed. In the pre-registered evaluation of record (Colab T4, commit 1bf9b91 / blob 0c9b1f0f, 2026-10-18), on the exposed development test (selected lr 1e-5), top-1 rose from 0.803 to 0.909 (macro F1 0.792 → 0.905, top-3 0.939 → 0.985). The gain came from four labels — `chewing` 0.43 → 0.86, `diving into water` 0.67 → 1.00, `drawing a sword` 0.71 → 1.00, `clapping hands` 0.50 → 0.67 — while `dribbling a basketball` lost one clip (0.71 → 0.57). On 66 clips one clip is 1.5 points, and `chewing`, the label with no Kinetics-400 counterpart, is where tuning had most to add. Those 66 clips helped choose the recipe, so none of this is a fresh measurement; the fresh test is the result. On its 669 clips the frozen model ranked the right label first for 0.786 and the adapted head for 0.895: +0.109, with a film-bootstrap 95% interval of [0.066, 0.151] that excludes 0, so the pre-registered reading is **adapted helps**. Of the clips only one system got right, 17 went to the frozen model and 90 to the adapted head (McNemar exact p 3.5e-13, clustered by film p 3.1e-06; descriptive only, the interval decides).</details>'
             ),
         },
         {
@@ -644,7 +651,7 @@ TEMPLATE = {
                 "label, the frozen top-3 and the adapted top-3 beneath it) so the numbers can be checked by eye. The five "
                 "drawn clips from Section 5 are then ranked again by the adapted model — the fusion head that was tuned ranks "
                 "every request, so this is a small look at what the adaptation did *outside* its label set and its corpus: "
-                "the Colab T4 run of blob 41caa483 (commit adcb4e8, 2026-10-09) measured before adaptation `a ball rolling to the right` → `a ball standing still` (0.69); `a ball bouncing up and down` → `a ball standing still` (0.51); `a square growing larger` → `a ball standing still` (0.43); `the sun setting` → `a ball standing still` (0.46); `a ball standing still` → `a ball standing still` (0.57) (top-1 0.20 over the five drawn labels); after adaptation `a ball rolling to the right` → `a ball standing still` (0.67); `a ball bouncing up and down` → `a ball standing still` (0.47); `a square growing larger` → `a ball bouncing up and down` (0.37); `the sun setting` → `a ball standing still` (0.41); `a ball standing still` → `a ball standing still` (0.55) (top-1 0.20) — five cartoons of evidence, not a measurement.\n\n"
+                "the pre-registered evaluation of record (Colab T4, commit 1bf9b91 / blob 0c9b1f0f, 2026-10-18) measured before adaptation `a ball rolling to the right` → `a ball standing still` (0.69); `a ball bouncing up and down` → `a ball standing still` (0.51); `a square growing larger` → `a ball standing still` (0.43); `the sun setting` → `a ball standing still` (0.46); `a ball standing still` → `a ball standing still` (0.57) (top-1 0.20 over the five drawn labels); after adaptation `a ball rolling to the right` → `a ball standing still` (0.67); `a ball bouncing up and down` → `a ball standing still` (0.47); `a square growing larger` → `a ball bouncing up and down` (0.37); `the sun setting` → `a ball standing still` (0.41); `a ball standing still` → `a ball standing still` (0.55) (top-1 0.20) — five cartoons of evidence, not a measurement.\n\n"
                 "`pipe.save_artifact` writes the trained tensors — the fusion head, about 41 MB in float32 — as "
                 "`adapter.safetensors`, with a `manifest.json` recording the artifact format, the base model id and revision, "
                 "the digest of the base `model.safetensors`, the tensor names, the file size and SHA-256, the label set the "
@@ -708,7 +715,7 @@ TEMPLATE = {
         },
         {
             "md": (
-                "**What to notice:** the six panels in `outputs/{stem}_examples/`, the drawn clips' rankings before and after, and the reload parity line.\n\n<details><summary>Check your reasoning</summary>In the Colab T4 run of blob 41caa483 (commit adcb4e8, 2026-10-09) the drawn clips stayed almost all `a ball standing still` before and after adaptation — the tuned head was never shown cartoons — with one ranking changed. Reload parity held: eight of eight identical rankings.</details>"
+                "**What to notice:** the six panels in `outputs/{stem}_examples/`, the drawn clips' rankings before and after, and the reload parity line.\n\n<details><summary>Check your reasoning</summary>In the pre-registered evaluation of record (Colab T4, commit 1bf9b91 / blob 0c9b1f0f, 2026-10-18) the drawn clips stayed almost all `a ball standing still` before and after adaptation — the tuned head was never shown cartoons — with one ranking changed. Reload parity held: eight of eight identical rankings.</details>"
             ),
         },
         {
@@ -770,10 +777,10 @@ TEMPLATE = {
     "closing": (
         "## Interpretation and limits\n\n"
         "A video–text model trained on Kinetics-400 — whose vocabulary already covers most of these ten actions — ranks the "
-        "right one of ten HMDB51 actions first for 0.803 of the 66 exposed-development-test clips in the Colab T4 run of blob 41caa483 (commit adcb4e8, 2026-10-09); a bounded "
+        "right one of ten HMDB51 actions first for 0.803 of the 66 exposed-development-test clips in the pre-registered evaluation of record (Colab T4, commit 1bf9b91 / blob 0c9b1f0f, 2026-10-18); a bounded "
         "fine-tuning of its fusion head on 181 clips moved that to 0.909 top-1 and 0.905 macro F1 on the same clips, with a "
         "41 MB adapter that reloads ranking-for-ranking. Those 66 clips were read by the sweep that fixed the recipe, so the "
-        "gain is read on the fresh test with the pre-registered rule; no hosted fresh-test run is recorded yet. That is the claim: the adaptation contract works end to end on a closed label set with a real "
+        "gain is read on the fresh test with the pre-registered rule: there the adapted head beat the frozen model, top-1 0.786 → 0.895 (+0.109, film-bootstrap 95% interval [0.066, 0.151]; 17 vs 90 discordant clips, McNemar descriptive), so the reading is **adapted helps**. That is the claim: the adaptation contract works end to end on a closed label set with a real "
         "labelled set, and the numbers it produces are read as top-1 / top-3 accuracy, macro recall and macro F1 against two "
         "non-adapted baselines and the frozen model, with the per-label recall beside them rather than in isolation. "
         "The Tesla T4 run reproduced the CPU sweep's exposed-development-test numbers (0.909 / 0.985 / 0.905 at epoch 2). This row has no sibling on its corpus — X-CLIP is the fleet's only video model — so the comparison is the frozen prompts against the tuned head on the same 66 clips: the gain comes from four labels (`chewing` 0.43 → 0.86, `diving into water` 0.67 → 1.00, `drawing a sword` 0.71 → 1.00, `clapping hands` 0.50 → 0.67) while `dribbling a basketball` lost one clip (0.71 → 0.57), and the five drawn cartoon clips stay at chance before and after (every clip but one is called `a ball standing still`): the head learned the ten HMDB51 actions, not motion in general.\n\n"

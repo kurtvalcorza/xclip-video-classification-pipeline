@@ -44,13 +44,16 @@ def _section8(notebook):
     return _cell(notebook, "settings_used = {")
 
 
-def _run8(notebook, tmp_path, monkeypatch, pipe=None, grid_record="default", **kw):
+def _run8(notebook, tmp_path, monkeypatch, pipe=None, grid_record="default", record=None, **kw):
+    """Section 8 with stand-ins. `record=None` is a runtime before any evaluation of record was set (the plumbing the
+    older tests pin); pass `record=pr.RECORDED_EVALUATION` for the shipped state."""
     monkeypatch.chdir(tmp_path)
     (tmp_path / "outputs").mkdir(exist_ok=True)
     monkeypatch.delenv(pr.MASK_ENV, raising=False)
     pipe = pipe or StandInPipe(adapter())
     fetched: list = []
     ns = namespace(pipe, grid() if grid_record == "default" else grid_record, fetched, **kw)
+    ns["RECORDED_EVALUATION"] = record
     exec(_section8(notebook), ns)
     return ns, fetched, pipe
 
@@ -267,7 +270,8 @@ def test_m1_no_unqualified_never_used_for_selection_claim_and_the_sweep_is_named
 def test_m3_every_quoted_run_is_the_current_blobs_colab_run(notebook):
     text = json.dumps(notebook)
     assert "Kaggle T4 release run" not in text and "release run" not in text.replace("release runtime", "")
-    assert "the Colab T4 run of blob 41caa483 (commit adcb4e8, 2026-10-09)" in text
+    assert "the pre-registered evaluation of record (Colab T4, commit 1bf9b91 / blob 0c9b1f0f, 2026-10-18)" in text
+    assert "41caa483" not in text and "adcb4e8" not in text
 
 
 def test_m4_spec_25_kind_and_use_notice(notebook):
@@ -382,7 +386,7 @@ def test_f3c_an_unparsable_ledger_line_counts_as_a_prior_look(tmp_path):
     log.write_text('{"event": "attempt"\n', encoding="utf-8")
     assert pr.look_at_test([], log, tmp_path / "none.json") == pr.TEST_LOOKS[1]
     log.write_text("\n", encoding="utf-8")
-    assert pr.look_at_test([], log, tmp_path / "none.json") == pr.TEST_LOOKS[0]
+    assert pr.look_at_test([], log, tmp_path / "none.json", recorded=None) == pr.TEST_LOOKS[0]
 
 
 def test_f2_a_split_record_without_a_film_key_refuses_before_any_model_sees_the_fresh_test(notebook, tmp_path, monkeypatch):
@@ -430,3 +434,80 @@ def test_f7_majority_per_label_rates_do_not_depend_on_label_order():
 
 def test_f11_adapted_drawings_carry_the_run_suffix(notebook):
     assert "rank_drawings(pipe, 'adapted' + RUN_SUFFIX)" in _cell(notebook, "examples_dir = Path(")
+
+
+# --- Requote after the 2026-10-18 evaluation of record (1bf9b91 / 0c9b1f0f) -----------------------------------------
+
+
+def test_rq_recorded_evaluation_is_the_2026_10_18_t4_run():
+    rec = pr.RECORDED_EVALUATION
+    assert rec is not None and rec["commit"] == "1bf9b91" and rec["notebook_blob"] == "0c9b1f0f"
+    assert (rec["selected_system"], rec["lr"], rec["n"]) == ("adapted", 1e-05, 669)
+    assert (rec["frozen_top1"], rec["selected_top1"], rec["delta_top1"], rec["ci95"]) == (0.786, 0.895, 0.109, [0.066, 0.151])
+    assert (rec["frozen_only_correct"], rec["selected_only_correct"], rec["verdict"]) == (17, 90, "adapted helps")
+    assert set(pr.RECORD_MATCH_FIELDS) <= set(rec)
+    assert (tmp := ROOT / rec["evidence"]).is_dir() and any(tmp.glob("*_output.ipynb"))
+
+
+def test_rq_the_label_is_exactly_reproduction():
+    assert pr.TEST_LOOKS[1] == "reproduction"
+
+
+def test_rq_with_the_record_set_a_new_runtime_is_a_reproduction(tmp_path):
+    # The module default is the record: an empty look log and no canonical report still read as a reproduction.
+    assert pr.look_at_test([], tmp_path / "none.jsonl", tmp_path / "none.json") == "reproduction"
+    assert pr.look_at_test([], tmp_path / "none.jsonl", tmp_path / "none.json", recorded=None) == pr.TEST_LOOKS[0]
+    assert pr.look_at_test(["epochs"], tmp_path / "none.jsonl", tmp_path / "none.json") == pr.TEST_LOOKS[2]
+
+
+def test_rq_first_run_in_a_new_runtime_never_writes_the_main_files(notebook, tmp_path, monkeypatch, capsys):
+    ns, fetched, pipe = _run8(notebook, tmp_path, monkeypatch, record=pr.RECORDED_EVALUATION)
+    assert ns["test_look"] == "reproduction" and ns["RUN_SUFFIX"] == "_reproduction_1"
+    assert not _report(tmp_path).exists() and _report(tmp_path, "_reproduction_1").is_file()
+    report = json.loads(_report(tmp_path, "_reproduction_1").read_text(encoding="utf-8"))
+    assert report["test_look"] == "reproduction" and report["recorded_evaluation"] == pr.RECORDED_EVALUATION
+    out = capsys.readouterr().out
+    assert "'reproduction_vs_record': {'matches_record': False" in out  # the stand-in reading is not the record
+    ns, _, _ = _run8(notebook, tmp_path, monkeypatch, record=pr.RECORDED_EVALUATION)
+    assert ns["RUN_SUFFIX"] == "_reproduction_2" and not _report(tmp_path).exists()
+
+
+def test_rq_a_first_scoring_without_a_record_prints_no_match_line(notebook, tmp_path, monkeypatch, capsys):
+    _run8(notebook, tmp_path, monkeypatch)
+    out = capsys.readouterr().out
+    assert "reproduction_vs_record" not in out and "'fresh_test_descriptive'" in out
+
+
+def test_rq_section_8_prints_the_fresh_descriptives(notebook, tmp_path, monkeypatch, capsys):
+    _run8(notebook, tmp_path, monkeypatch, record=pr.RECORDED_EVALUATION)
+    line = next(x for x in capsys.readouterr().out.splitlines() if x.startswith("{'fresh_test_descriptive'"))
+    for key in ("'baselines': {'chance': {'top1_accuracy'", "'majority': {'top1_accuracy'", "'frozen_vs_selected'", "'top3_accuracy'",
+                "'macro_recall'", "'macro_f1'", "'per_label_recall'", "'clips_per_label'", "'fetch_decode_seconds'", "'device'"):
+        assert key in line, key
+
+
+def test_rq_exploratory_runs_print_neither_descriptives_nor_a_match(notebook, tmp_path, monkeypatch, capsys):
+    _run8(notebook, tmp_path, monkeypatch, pipe=StandInPipe(adapter(epochs=3)), record=pr.RECORDED_EVALUATION)
+    out = capsys.readouterr().out
+    assert "fresh_test_descriptive" not in out and "reproduction_vs_record" not in out
+
+
+def test_rq_compare_with_record_matches_at_printed_precision():
+    films = [f"f{i // 3}" for i in range(30)]
+    reading = pr.paired_reading([True] * 20 + [False] * 10, [True] * 28 + [False] * 2, films, selected_system="adapted")
+    rec = {"selected_system": "adapted", "lr": 1e-05, "n": 30, "frozen_top1": round(reading["frozen_top1"], 3),
+           "selected_top1": round(reading["selected_top1"], 3), "delta_top1": round(reading["delta_top1"], 3),
+           "ci95": [round(x, 3) for x in reading["ci95"]], "frozen_only_correct": reading["mcnemar"]["frozen_only_correct"],
+           "selected_only_correct": reading["mcnemar"]["selected_only_correct"], "verdict": reading["verdict"]}
+    assert pr.compare_with_record(reading, 1e-05, rec)["matches_record"] is True
+    changed = pr.compare_with_record(reading, 1e-05, {**rec, "selected_only_correct": rec["selected_only_correct"] + 1})
+    assert changed["matches_record"] is False and set(changed["differs"]) == {"selected_only_correct"}
+    assert pr.compare_with_record(reading, 2e-05, rec)["differs"].keys() == {"lr"}
+    assert pr.compare_with_record(reading, 1e-05, None)["matches_record"] is None
+
+
+def test_rq_no_stale_requote_phrases(notebook):
+    text = _markdown(notebook)
+    for stale in ("not yet measured", "about 2 minutes", "never-scored", "no hosted fresh-test run is recorded yet"):
+        assert stale not in text, stale
+    assert "0.786" in text and "0.895" in text and "[0.066, 0.151]" in text and "390.5 s" in text

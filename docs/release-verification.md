@@ -174,9 +174,11 @@ stated runtime, not general estimates.
 - **Score-once.** The fresh test is scored only under the pre-registered settings (SCORE_ONCE_RULE). The first hosted
   T4 run with those settings is **the evaluation of record**; later identical runs are reproductions.
   `protocol.RECORDED_EVALUATION` is `None` until that run. **Evaluation of record: the 2026-10-18 Colab T4 run of
-  `1bf9b91` / `0c9b1f0f` (section below). Reproductions: none yet.** `RECORDED_EVALUATION` is still `None` in the
-  code at `1bf9b91`, so a later identical run labels itself "pre-registered evaluation (this runtime)"; this document,
-  not that label, says which run is the record.
+  `1bf9b91` / `0c9b1f0f` (section below). Reproductions: none yet.** At `1bf9b91` `RECORDED_EVALUATION` was still
+  `None`; the requote that follows the record sets it to that run (frozen 0.786, adapted 0.895, +0.109, CI
+  [0.066, 0.151], 17/90, "adapted helps"). From then on every run with identical settings, including the first in a
+  new runtime, is labelled "reproduction", writes `*_reproduction_<n>` files (never the main ones) and prints
+  `reproduction_vs_record`, whether its reading matches the record at printed precision.
 - **CPU development check, fresh test MASKED** (SCORE_ONCE_RULE 8; `DIMER_MASK_FRESH_TEST=1`), 2026-10-18, code at
   commit `6840787` (working-tree notebook regenerated from it), Windows venv `torch 2.14.0+cpu`, float32, 310 s.
   Nothing was read from the fresh test; no setting was changed after it. `settings_differing` = [] (the gate passes

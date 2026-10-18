@@ -271,7 +271,9 @@ def test_xcl_m1_a_worse_test_score_is_recorded_and_does_not_stop_the_notebook(no
     ns8 = section8_namespace(Worse(adapter()), grid(), [])
     ns8.update({"frozen_test": ns["frozen_test"], "baseline_chance": ns["baseline_chance"], "baseline_majority": ns["baseline_majority"], "frozen_verdict": ns["frozen_verdict"]})
     exec(_cell(notebook, "adapted_test = pipe.evaluate(test_records, LABELS"), ns8)
-    report = json.loads((tmp_path / "outputs" / f"{STEM}_evaluation_report.json").read_text(encoding="utf-8"))
+    # With the evaluation of record set, this first run in a new runtime is a reproduction: `_reproduction_1`.
+    assert ns8["test_look"] == "reproduction"
+    report = json.loads((tmp_path / ns8["report_path"]).read_text(encoding="utf-8"))
     verdicts = report["exposed_development_test"]["comparison"]["verdicts"]
     assert verdicts["adapted_vs_frozen_top1_accuracy"] == "worse" and verdicts["adapted_above_both_baselines"] is False
 

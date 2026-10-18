@@ -2,8 +2,8 @@
 
 A three-value learning-rate grid is compared on validation only; a challenger replaces the default 1e-5 only when its
 kept-epoch validation top-1 beats the default's by at least two clips, and an adapted epoch replaces the frozen model
-only when it beats it by two clips (`adapt(min_improvement=...)`). The fresh test (the never-scored HMDB51 split-1
-training clips of the ten classes, `samples.fetch_fresh_test`) is scored only when every pre-registered setting holds,
+only when it beats it by two clips (`adapt(min_improvement=...)`). The fresh test (the HMDB51 split-1 training clips of
+the ten classes, `samples.fetch_fresh_test`; scored by the 2026-10-18 evaluation of record) is scored only when every pre-registered setting holds,
 the grid ran complete on this run's data, and the model in memory is the selected system (SCORE_ONCE_RULE). Any other
 setting is exploratory: it reads validation and the labelled exposed development test (the 66 clips of the default
 split, which a 2026-09-20 sweep read for five learning rates) and writes separate `*_exploratory_<n>` files.
@@ -63,14 +63,35 @@ PREREGISTERED_SETTINGS: dict[str, Any] = {
 # the evaluation of record (the first hosted pre-registered run) is stated only in docs/release-verification.md.
 TEST_LOOKS = (
     "pre-registered evaluation (this runtime)",
-    "reproduction (this runtime)",
+    "reproduction",
     "not scored (exploratory)",
     "not scored (fresh test masked for a development check)",
 )
-# The evaluation of record: None until the first hosted T4 run with the pre-registered settings; the requote after that
-# run fills it and docs/release-verification.md names the run. The notebook prints it beside its own (this runtime)
-# scoring and never uses it to change a setting.
-RECORDED_EVALUATION: dict[str, Any] | None = None
+# The evaluation of record: the first hosted T4 run with the pre-registered settings (docs/release-verification.md,
+# "Fresh-test evaluation of record"). Values as printed by Section 8 of that run (3 decimals). Once it is set, every
+# later scoring with identical settings, including the first one in a new runtime, is a "reproduction": it writes
+# `*_reproduction_<n>` files, never the main ones, and prints whether it matches this record. Nothing here changes a
+# setting.
+RECORDED_EVALUATION: dict[str, Any] | None = {
+    "run": "Colab CLI sequential execution (colab exec -f) on a fresh Colab T4 runtime, 2026-10-18",
+    "commit": "1bf9b91",
+    "notebook_blob": "0c9b1f0f",
+    "evidence": "docs/execution-evidence/2026-10-18-1bf9b91/",
+    "selected_system": "adapted",
+    "lr": 1e-05,
+    "n": 669,
+    "frozen_top1": 0.786,
+    "selected_top1": 0.895,
+    "delta_top1": 0.109,
+    "ci95": [0.066, 0.151],
+    "frozen_only_correct": 17,
+    "selected_only_correct": 90,
+    "verdict": "adapted helps",
+}
+# The fields a reproduction is compared on, at the record's printed precision.
+RECORD_MATCH_FIELDS = ("selected_system", "lr", "n", "frozen_top1", "selected_top1", "delta_top1", "ci95",
+                       "frozen_only_correct", "selected_only_correct", "verdict")
+_MODULE_RECORD = object()
 MODEL_STATE_MISMATCH = "model state is not the selected system"
 _ADAPTER_KEYS = ("lr", "epochs", "batch_size", "seed", "best_epoch", "n_train", "min_improvement")
 
@@ -196,17 +217,34 @@ def is_look(entry: Mapping[str, Any]) -> bool:
     return entry.get("event") in ("attempt", "scored") or entry.get("test_look") in TEST_LOOKS[:2]
 
 
-def look_at_test(differing: Sequence[str], log_path: str | Path, canonical: str | Path, *, masked: bool = False) -> str:
-    """`not scored (exploratory)` when any setting differs; the masked label for a development check; `reproduction
-    (this runtime)` when this runtime already scored the fresh test (look log) or a canonical report exists, readable
-    or not; else the pre-registered evaluation (this runtime)."""
+def look_at_test(differing: Sequence[str], log_path: str | Path, canonical: str | Path, *, masked: bool = False,
+                 recorded: Any = _MODULE_RECORD) -> str:
+    """`not scored (exploratory)` when any setting differs; the masked label for a development check; `reproduction`
+    when an evaluation of record is set (`recorded`, default `RECORDED_EVALUATION`; this includes the first run in a new
+    runtime), when this runtime already scored the fresh test (look log) or when a canonical report exists, readable or
+    not; else the pre-registered evaluation (this runtime)."""
     if differing:
         return TEST_LOOKS[2]
     if masked:
         return TEST_LOOKS[3]
-    if any(is_look(e) for e in read_looks(log_path)) or Path(canonical).exists():
+    record = RECORDED_EVALUATION if recorded is _MODULE_RECORD else recorded
+    if record is not None or any(is_look(e) for e in read_looks(log_path)) or Path(canonical).exists():
         return TEST_LOOKS[1]
     return TEST_LOOKS[0]
+
+
+def compare_with_record(reading: Mapping[str, Any], lr: float, record: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Display only: does this run's fresh-test reading equal the evaluation of record at its printed precision (3
+    decimals; counts, lr, system and verdict exactly)? Returns {'matches_record': bool | None, 'differs': {...}}."""
+    if record is None:
+        return {"matches_record": None, "differs": {}, "note": "no evaluation of record is set"}
+    now = {"selected_system": reading["selected_system"], "lr": float(lr), "n": reading["n"],
+           "frozen_top1": round(reading["frozen_top1"], 3), "selected_top1": round(reading["selected_top1"], 3),
+           "delta_top1": round(reading["delta_top1"], 3), "ci95": [round(x, 3) for x in reading["ci95"]],
+           "frozen_only_correct": reading["mcnemar"]["frozen_only_correct"],
+           "selected_only_correct": reading["mcnemar"]["selected_only_correct"], "verdict": reading["verdict"]}
+    differs = {k: {"record": record.get(k), "this_run": now[k]} for k in RECORD_MATCH_FIELDS if record.get(k) != now[k]}
+    return {"matches_record": not differs, "differs": differs, "record": f"{record.get('commit')} / {record.get('notebook_blob')} ({record.get('run')})"}
 
 
 def fresh_test_scored(test_look: str) -> bool:

@@ -202,7 +202,7 @@ def test_read_corpus_keeps_the_ten_sample_classes_and_decodes_clips(monkeypatch)
     rows = [{"video": r["video"]["bytes"], "path": r["video"]["path"], "label": r["label"]} for r in _fake_rows(6, label=0) + _fake_rows(3, label=10) + _fake_rows(4, label=9)]
     records = read_corpus({0: rows})
     assert len(records) == 10 and len(calls) == 10  # the label-10 rows (eleventh class) are skipped, undecoded
-    assert records[0] == {"id": "hmdb51-test-0-0", "frames": records[0]["frames"], "label": "brushing hair", "class": "brush_hair", "source": "src0/brush_hair", "source_row_group": 0}
+    assert records[0] == {"id": "hmdb51-test-0-0", "frames": records[0]["frames"], "label": "brushing hair", "class": "brush_hair", "source": "src0/brush_hair", "film": "src0", "source_row_group": 0}
     assert records[-1]["label"] == "dribbling a basketball" and records[-1]["source"] == "src1/dribble"
 
 

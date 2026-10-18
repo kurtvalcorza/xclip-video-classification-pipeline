@@ -50,6 +50,24 @@ ROW_GROUP_PINS: dict[int, tuple[str, int]] = {
 }
 DEFAULT_CACHE_DIR = Path("weights") / "hmdb51"
 
+# The FRESH test (owner ruling R113-D1, docs/xclip-preregistration.md): every HMDB51 split-1 training clip of the ten
+# sample classes, at the same pinned revision, minus the clips whose film (strict key: case-folded, `_<n>` part
+# suffixes stripped) also appears among the 300 sample clips, minus the clips a pixel / perceptual-hash screen against
+# the 300 removed. Never used for training, the grid or epoch selection; scored only under the pre-registered settings.
+FRESH_FILE = "default/train/0000.parquet"
+FRESH_BYTES = 380_572_368
+FRESH_ROWS = 1_190
+FRESH_URL = f"https://huggingface.co/datasets/{CORPUS_REPO}/resolve/{CORPUS_REVISION}/{FRESH_FILE}"
+FRESH_ROW_GROUP_PINS: dict[int, tuple[str, int]] = {
+    0: ("2d0459984a029ca69a39a13ebdafcd387d264601970b9b0197e6c8df8d2ab210", 114_923_824),
+    1: ("6bcc4700ffc1f3541a802af5bd68a0f0c02d1335ecc057e0ec0b662cfe777069", 101_805_360),
+    2: ("f720253403970c478941585b93bbc63cbf3f1919a1daacf88216cb3f17df6eef", 83_889_668),
+}
+FRESH_EXCLUDED_FILMS: tuple[str, ...] = ("basketball_dribbling_tips_", "chewing_gum", "finding_forrester", "how_to_do_a_cartwheel", "projekt_spoho_2008_-_27_02_08_-_training-_bodenk_r", "return_of_the_king", "theboondocksaints", "treppensteigen")
+FRESH_SCREEN_EXCLUDED: tuple[str, ...] = ()  # the screen removed none (docs/xclip-preregistration.md)
+FRESH_TEST_CLIPS = 682
+FRESH_TEST_LIST_SHA256 = "ac0144fa7c33b06ec11ce73b560eaf339ea0c9c70dd934493ca4303019a4bc04"  # fresh_clip_list_digest over (row group, index, path, bytes, SHA-256) of every kept clip
+
 # The HMDB51 class vocabulary (parquet `label` feature names) and the ten classes the sample keeps, with the
 # natural-language label the CLIP text tower is asked to rank (the upstream zero-shot recipe uses plain phrases).
 HMDB51_CLASSES = ("brush_hair", "cartwheel", "catch", "chew", "clap", "climb", "climb_stairs", "dive", "draw_sword", "dribble", "drink", "eat", "fall_floor", "fencing", "flic_flac", "golf", "handstand", "hit", "hug", "jump", "kick", "kick_ball", "kiss", "laugh", "pick", "pour", "pullup", "punch", "push", "pushup", "ride_bike", "ride_horse", "run", "shake_hands", "shoot_ball", "shoot_bow", "shoot_gun", "sit", "situp", "smile", "smoke", "somersault", "stand", "swing_baseball", "sword", "sword_exercise", "talk", "throw", "turn", "walk", "wave")
@@ -145,6 +163,49 @@ def _group_digest(rows: Sequence[Mapping[str, Any]]) -> tuple[str, int]:
     return digest.hexdigest(), total
 
 
+def _fetch_groups(
+    *, url: str, file: str, size: int, n_rows: int, pins: Mapping[int, tuple[str, int]], prefix: str,
+    cache_dir: str | Path | None, groups: Sequence[int] | None, opener: Any
+) -> dict[int, list[dict[str, Any]]]:
+    """The pinned row groups of one parquet shard as lists of `{video, path, label}`, cache first (re-hashed), else
+    footer + row group over range requests; refused on any SHA-256 / byte-total / declared-size / row-count mismatch."""
+    import pyarrow.parquet as pq
+
+    cache = Path(cache_dir) if cache_dir is not None else DEFAULT_CACHE_DIR
+    cache.mkdir(parents=True, exist_ok=True)
+    wanted = list(groups) if groups is not None else sorted(pins)
+    out: dict[int, list[dict[str, Any]]] = {}
+    reader = None
+    for group in wanted:
+        if group not in pins:
+            raise ValueError(f"row group {group} has no pin; pinned groups are {sorted(pins)}")
+        local = cache / f"{prefix}{group}.parquet"
+        rows: list[dict[str, Any]] | None = None
+        if local.is_file():
+            rows = pq.read_table(local).to_pylist()
+            if _group_digest(rows) != pins[group]:
+                rows = None  # stale or corrupt cache: refetch
+        if rows is None:
+            if reader is None:
+                if opener is not None:
+                    reader = pq.ParquetFile(opener(url))
+                else:
+                    declared = _declared_size(url)
+                    if declared != size:
+                        raise ValueError(f"{file}: declared size {declared} != pinned {size}")
+                    reader = pq.ParquetFile(io.BufferedReader(_HttpRangeFile(url, size), buffer_size=1 << 20))
+                if reader.metadata.num_rows != n_rows:
+                    raise ValueError(f"{file}: {reader.metadata.num_rows} rows, pinned {n_rows}")
+            table = reader.read_row_group(group, columns=["video", "label"])
+            rows = table.to_pylist()
+            digest, total = _group_digest(rows)
+            if (digest, total) != pins[group]:
+                raise ValueError(f"{file} row group {group}: sha256 {digest} / {total} bytes != pinned {pins[group]}")
+            pq.write_table(table, local)
+        out[group] = [{"video": r["video"]["bytes"], "path": str(r["video"]["path"] or ""), "label": int(r["label"])} for r in rows]
+    return out
+
+
 def fetch_corpus(
     *, cache_dir: str | Path | None = None, groups: Sequence[int] | None = None, opener: Any = None
 ) -> dict[int, list[dict[str, Any]]]:
@@ -152,41 +213,8 @@ def fetch_corpus(
     cache (one parquet file per row group) or the Hub (footer + the row group, over range requests). Every row group's
     content is refused unless its SHA-256 and byte total match `ROW_GROUP_PINS`; a fresh fetch also checks the shard's
     declared size and row count."""
-    import pyarrow.parquet as pq
-
-    cache = Path(cache_dir) if cache_dir is not None else DEFAULT_CACHE_DIR
-    cache.mkdir(parents=True, exist_ok=True)
-    wanted = list(groups) if groups is not None else sorted(ROW_GROUP_PINS)
-    out: dict[int, list[dict[str, Any]]] = {}
-    reader = None
-    for group in wanted:
-        if group not in ROW_GROUP_PINS:
-            raise ValueError(f"row group {group} has no pin; pinned groups are {sorted(ROW_GROUP_PINS)}")
-        local = cache / f"test-rg{group}.parquet"
-        rows: list[dict[str, Any]] | None = None
-        if local.is_file():
-            rows = pq.read_table(local).to_pylist()
-            if _group_digest(rows) != ROW_GROUP_PINS[group]:
-                rows = None  # stale or corrupt cache: refetch
-        if rows is None:
-            if reader is None:
-                if opener is not None:
-                    reader = pq.ParquetFile(opener(CORPUS_URL))
-                else:
-                    declared = _declared_size(CORPUS_URL)
-                    if declared != CORPUS_BYTES:
-                        raise ValueError(f"{CORPUS_FILE}: declared size {declared} != pinned {CORPUS_BYTES}")
-                    reader = pq.ParquetFile(io.BufferedReader(_HttpRangeFile(CORPUS_URL, CORPUS_BYTES), buffer_size=1 << 20))
-                if reader.metadata.num_rows != CORPUS_ROWS:
-                    raise ValueError(f"{CORPUS_FILE}: {reader.metadata.num_rows} rows, pinned {CORPUS_ROWS}")
-            table = reader.read_row_group(group, columns=["video", "label"])
-            rows = table.to_pylist()
-            digest, total = _group_digest(rows)
-            if (digest, total) != ROW_GROUP_PINS[group]:
-                raise ValueError(f"{CORPUS_FILE} row group {group}: sha256 {digest} / {total} bytes != pinned {ROW_GROUP_PINS[group]}")
-            pq.write_table(table, local)
-        out[group] = [{"video": r["video"]["bytes"], "path": str(r["video"]["path"] or ""), "label": int(r["label"])} for r in rows]
-    return out
+    return _fetch_groups(url=CORPUS_URL, file=CORPUS_FILE, size=CORPUS_BYTES, n_rows=CORPUS_ROWS, pins=ROW_GROUP_PINS,
+                         prefix="test-rg", cache_dir=cache_dir, groups=groups, opener=opener)
 
 
 def decode_clip(data: bytes, n: int = NUM_FRAMES) -> list[Image.Image]:
@@ -196,7 +224,7 @@ def decode_clip(data: bytes, n: int = NUM_FRAMES) -> list[Image.Image]:
     import av
 
     frames: list[Image.Image] = []
-    with av.open(io.BytesIO(data)) as container:
+    with av.open(io.BytesIO(data), metadata_errors="ignore") as container:  # some HMDB51 AVIs carry non-UTF-8 tags
         stream = container.streams.video[0]
         stream.thread_type = "AUTO"
         for frame in container.decode(stream):
@@ -212,6 +240,62 @@ def source_of(path: str, class_name: str) -> str:
     a split is made disjoint on this key (one film can still contribute different actions to different splits)."""
     match = re.match(rf"^(.*)_{re.escape(class_name)}_(.*)_(\d+)\.avi$", path)
     return f"{match.group(1) if match else Path(path).stem}/{class_name}"
+
+
+def film_of(path: str, class_name: str) -> str:
+    """The stricter film key (owner ruling R113-D1): the source-video name of `source_of`, case-folded, with trailing
+    `_<n>` part suffixes stripped, so numbered parts of one film (`Finding_Forrester_1`, `_3`) are one film."""
+    match = re.match(rf"^(.*)_{re.escape(class_name)}_(.*)_(\d+)\.avi$", path)
+    film = match.group(1) if match else Path(path).stem
+    return re.sub(r"(_\d+)+$", "", film).lower()
+
+
+def film_overlap(splits: Mapping[str, Sequence[Mapping[str, Any]]]) -> dict[str, Any]:
+    """Films (strict key, any action) with clips in more than one split. The sample's split is source-disjoint per
+    action, not per film, so this is reported, not refused."""
+    seen: dict[str, set[str]] = defaultdict(set)
+    for name, records in splits.items():
+        for record in records:
+            if record.get("film"):
+                seen[record["film"]].add(name)
+    shared = {film: sorted(parts) for film, parts in sorted(seen.items()) if len(parts) > 1}
+    clips = sum(1 for records in splits.values() for r in records if r.get("film") in shared)
+    return {"films_shared": shared, "clips_in_shared_films": clips, "key": "strict film key (case-folded, part suffix stripped)"}
+
+
+def fresh_clip_list_digest(clips: Sequence[Mapping[str, Any]]) -> str:
+    """SHA-256 over the sorted lines `row_group<TAB>index<TAB>path<TAB>bytes<TAB>sha256` of the kept fresh clips."""
+    lines = sorted((int(c["row_group"]), int(c["index"]), str(c["path"]), int(c["size"]), str(c["sha256"])) for c in clips)
+    return _sha256_bytes(("".join(f"{g}\t{i}\t{p}\t{n}\t{h}\n" for g, i, p, n, h in lines)).encode("utf-8"))
+
+
+def fresh_test_clips(groups: Mapping[int, Sequence[Mapping[str, Any]]]) -> list[dict[str, Any]]:
+    """The pinned fresh-test clip list from the verified training-shard row groups (no decoding): ten sample classes,
+    minus `FRESH_EXCLUDED_FILMS` and `FRESH_SCREEN_EXCLUDED`; refused unless it equals `FRESH_TEST_LIST_SHA256`."""
+    out = []
+    for group in sorted(groups):
+        for index, row in enumerate(groups[group]):
+            class_name = HMDB51_CLASSES[row["label"]]
+            if class_name not in SAMPLE_CLASS_TEXT or film_of(row["path"], class_name) in FRESH_EXCLUDED_FILMS or row["path"] in FRESH_SCREEN_EXCLUDED:
+                continue
+            out.append({"row_group": group, "index": index, "path": row["path"], "class": class_name, "size": len(row["video"]),
+                        "sha256": _sha256_bytes(row["video"]), "video": row["video"]})
+    digest = fresh_clip_list_digest(out)
+    if len(out) != FRESH_TEST_CLIPS or digest != FRESH_TEST_LIST_SHA256:
+        raise ValueError(f"fresh test list: {len(out)} clips / sha256 {digest} != pinned {FRESH_TEST_CLIPS} / {FRESH_TEST_LIST_SHA256}")
+    return out
+
+
+def fetch_fresh_test(*, cache_dir: str | Path | None = None, opener: Any = None) -> list[dict[str, Any]]:
+    """Fetch, verify and decode the fresh test (owner ruling R113-D1) into records `{id, frames, label, class, source,
+    film}` with ids `hmdb51-train-<group>-<index>`. About 300 MB of row-group bytes; decoding takes minutes on CPU."""
+    groups = _fetch_groups(url=FRESH_URL, file=FRESH_FILE, size=FRESH_BYTES, n_rows=FRESH_ROWS, pins=FRESH_ROW_GROUP_PINS,
+                           prefix="train0000-rg", cache_dir=cache_dir, groups=None, opener=opener)
+    return [
+        {"id": f"hmdb51-train-{c['row_group']}-{c['index']}", "frames": decode_clip(c["video"]), "label": SAMPLE_CLASS_TEXT[c["class"]],
+         "class": c["class"], "source": source_of(c["path"], c["class"]), "film": film_of(c["path"], c["class"]), "source_row_group": c["row_group"]}
+        for c in fresh_test_clips(groups)
+    ]
 
 
 def read_corpus(groups: Mapping[int, Sequence[Mapping[str, Any]]]) -> list[dict[str, Any]]:
@@ -230,6 +314,7 @@ def read_corpus(groups: Mapping[int, Sequence[Mapping[str, Any]]]) -> list[dict[
                     "label": SAMPLE_CLASS_TEXT[class_name],
                     "class": class_name,
                     "source": source_of(row["path"], class_name),
+                    "film": film_of(row["path"], class_name),
                     "source_row_group": group,
                 }
             )

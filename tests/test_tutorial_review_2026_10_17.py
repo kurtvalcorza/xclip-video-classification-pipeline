@@ -322,7 +322,8 @@ def test_s2_no_local_absolute_paths_in_committed_evidence():
     for path in (ROOT / "docs").rglob("*"):
         if path.is_file() and path.suffix in (".log", ".json", ".md", ".ipynb"):
             text = path.read_text(encoding="utf-8", errors="replace")
-            for needle in ("/home/kurt", "Users\\Kurt", "Users/Kurt", "KURTVA~1"):
+            # Needles assembled from parts so this guard is not itself a hit for the repository-wide path grep.
+            for needle in ("/home/" + "kurt", "Users" + "\\" + "Kurt", "Users" + "/Kurt", "KURTVA" + "~1"):
                 assert needle not in text, f"{path.name}: {needle}"
 
 

@@ -300,8 +300,9 @@ def test_m8_a_refused_byod_run_leaves_no_report_under_the_canonical_names(notebo
     ns = {"os": __import__("os"), "Path": Path, "__name__": "__main__", "pipe": type("P", (), {"adapter": None, "restore_base": lambda self: []})()}
     for module in (pl, mt, sm):
         ns.update({k: getattr(module, k) for k in dir(module) if not k.startswith("__")})
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(ValueError) as caught:  # DAT20: a BYODRefusal, shown as one Refused: line
         exec(source, ns)
+    assert getattr(caught.value, "dimer_refusal", False)
     assert not list(out.glob(f"{STEM}_*")) and (out / "previous_run_1" / f"{STEM}_evaluation_report.json").is_file()
 
 

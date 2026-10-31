@@ -1,0 +1,72 @@
+{
+  "repo": "xclip-video-classification-pipeline",
+  "sha": "886fe30e887e08c0ae113410c1e45956b631f8fe",
+  "notebook": "tutorials/xclip_video_classification_colab.ipynb",
+  "blob": "229034e6a0a10274aa7fab1d3380a1fef46646d2",
+  "gpu": "T4",
+  "session": "suite-xclip-886fe30-2472",
+  "started_utc": "2026-10-30T18:08:00+00:00",
+  "runner": "Colab CLI `colab exec -f` on a fresh session (not a browser Run all)",
+  "overrides": [
+    {
+      "name": "USE_BYOD",
+      "from": "False",
+      "to": "True"
+    },
+    {
+      "name": "BYOD_PATH",
+      "from": "''",
+      "to": "'/content/sample_data'"
+    }
+  ],
+  "run_copy_blob": "2cc4bb4b873e22395901109a3ef9e1c464ce98a3",
+  "run_copy_sha256": "502f985ca2cf81de031323110fae7313e12a80790db370f4110494d4e1c66fcf",
+  "run_copy_note": "refusal run: the run copy is the committed notebook with the listed assignment overrides, cut immediately after the refusal cell and re-serialised (nbformat layout); input_unchanged compares against that copy",
+  "truncated_after_cell": "xclip_video_classification-18",
+  "refusal_cell_ref": "xclip_video_classification-18",
+  "refusal_cell_index": 8,
+  "cells_dropped": 20,
+  "code_cells_dropped": 6,
+  "original_sha256": "f32ec720083920ea42e98eeb68a50eb0c676eabcdecbaa5a979e7d6cbe5b3652",
+  "status": "[suite-xclip-886fe30-2472] gpu-t4-s-ass1c0-9qr7vebpr15e | Hardware: T4 | Shape: Standard | Variant: GPU | Status: IDLE",
+  "exec_exit_code": 0,
+  "stopped": true,
+  "stop_verified": true,
+  "wall_s": 93.9,
+  "input_unchanged": true,
+  "executed_file": "xclip_video_classification_colab_886fe30_colab-cli-t4_output.ipynb",
+  "log_cells": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "log_total": 8,
+  "code_cells": 8,
+  "executed_cells": 4,
+  "errors": [
+    {
+      "cell": "xclip_video_classification-18",
+      "ename": "IsolatedCellRefusal",
+      "evalue": "sample_data: BYOD data must include labels.csv with the columns file and label; fix the input and run this cell again (the earlier results of this session were removed)."
+    }
+  ],
+  "execution_counts": [],
+  "sequential": null,
+  "executed_sha256": "d495acc27c96fe54288500e4cf55514ac6267b86f62627d3e06a95a9c9ffaf18",
+  "log_sequential_complete": true,
+  "mode": "expect_refusal",
+  "refusal_line": "Refused: sample_data: BYOD data must include labels.csv with the columns file and label; fix the input and run this cell again (the earlier results of this session were removed).",
+  "halting_cell_index": 8,
+  "halting_cell_id": "xclip_video_classification-18",
+  "error_cells": [
+    8
+  ],
+  "refusal_fail_reasons": [],
+  "refusal_ok": true,
+  "verdict": "PASS"
+}

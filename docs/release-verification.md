@@ -341,7 +341,50 @@ descriptives print, and regenerate the notebook).
   dispersion. CLI sequential execution, not a browser Run all; forms, uploads, BYOD (REL12), the `SPLIT_SEED` re-run
   and Section 10 not exercised. The status stays **Candidate**.
 
-### Hosted Colab T4 runs of blob `229034e6` (2026-10-30)
+### REL14 hosted runs of blob `6b08e748` (2026-11-03)
+
+These 2 runs executed main `135a27dc9e89cb1af4836d6fc09dcfdcfeab12f5` (`tutorials/xclip_video_classification_colab.ipynb` blob `6b08e748593a6368070c5328a734f0497ad55057`) as Colab CLI sequential executions (`colab exec -f`) on fresh Colab Tesla T4 VMs (session `suite-xclip-135a27d-2472`), not a browser `Run all`. The Colab CLI version is not recorded in `exec.log` or `run_summary.json`. The saved notebooks have no execution counts; cell order is taken from `exec.log`. Each `run_summary.json` records the commit and notebook blob above, `verdict` `PASS`, `exec_exit_code` 0, `input_unchanged` true and `stop_verified` true (the VM was released); the SHA-256 of each executed notebook equals the summary's `executed_sha256`. Local paths in the exec logs are redacted byte-wise to `<local-run-dir>`; the notebooks and summaries carried none.
+
+| Date (UTC) | Commit / notebook blob | Executor | Path exercised | Code cells | Wall time | Outcome |
+|---|---|---|---|---:|---:|---|
+| 2026-11-03 15:15 | `135a27d` / `6b08e748` | Colab CLI sequential execution, fresh Colab Tesla T4 | default settings, no overrides | 14/14 | 442.1 s | **One pass, no restart, 0 errors**; [retained evidence](execution-evidence/2026-11-02-135a27d/) |
+| 2026-11-03 15:31 | `135a27d` / `6b08e748` | Colab CLI sequential execution, fresh Colab Tesla T4 | scripted DAT20 refusal: `USE_BYOD` `False` → `True` and `BYOD_PATH` `''` → `'/content/sample_data'` | 8/8 of the cut copy | 117.0 s | **Refused as designed**: one `Refused:` line, no traceback, earlier cells clean; [retained evidence](execution-evidence/2026-11-02-135a27d-refusal/) |
+
+Lines printed by the default run (quoted from the executed notebook):
+
+```text
+{'frozen_model_test': {'top1_accuracy': 0.803, 'top3_accuracy': 0.939, 'macro_recall': 0.802, 'macro_f1': 0.792}, 'n': 66, 'mean_rank': 1.42, 'verdict': 'measured', 'seconds': 4.1}
+{'top1_accuracy': {'chance': 0.1, 'majority': 0.091, 'frozen': 0.803, 'adapted': 0.909}}
+{'macro_f1': {'chance': 0.1, 'majority': 0.017, 'frozen': 0.792, 'adapted': 0.905}}
+{'delta_vs_frozen': {'top1_accuracy': 0.106, 'top3_accuracy': 0.045, 'macro_recall': 0.107, 'macro_f1': 0.112}}
+{'reload_parity': {'identical_rankings': 8, 'of': 8}, 'reloaded_best_epoch': 2}
+```
+
+**DAT20 refusal record (2026-11-03).** Overrides, set by `--set` on a copy of the blob: `USE_BYOD` `False` → `True` and `BYOD_PATH` `''` → `'/content/sample_data'` (the run copy differs from the blob in exactly those 2 source lines). The suite cut the run copy right after the refusing cell `xclip_video_classification-18`, dropping 20 cells (6 of them code cells), which reproduces `Run all` stopping at the first error; the cut copy is `run_copy.ipynb`, SHA-256 `b9f3d1ee1a707663992a4f09af175e85ee692a1e882755e211b8f6843b5c1ddf` (Git blob `40c026b4`), equal to the summary's `run_copy_sha256`. The 7 earlier code cells completed without an error. The refusing cell halted with `ename` `IsolatedCellRefusal` and printed exactly one `Refused:` line, with no traceback:
+
+```text
+Refused: sample_data: BYOD data must include labels.csv with the columns file and label; fix the input and run this cell again (the earlier results of this session were removed).
+```
+
+This run says nothing about the 20 cut cells, which did not run in it.
+
+| File (under `docs/execution-evidence/2026-11-02-135a27d/`) | Captured SHA-256 | Committed SHA-256 |
+|---|---|---|
+| `xclip_video_classification_colab_135a27d_colab-cli-t4_default.ipynb` | `0f1bce68576db572447004cf0029fea8052439c49903f2e669b59716f382f3ee` | `0f1bce68576db572447004cf0029fea8052439c49903f2e669b59716f382f3ee` (unchanged, no local path) |
+| `exec.log` | `63e691b079cc248ea2c2bdacbc3ac31a63c35d0cca460f2ad5a6beffb68022f2` | `5a9608163f434455e2040049a50df87bdfe6fa127f9d23138b4149cac1817907` (2 local-path replacements) |
+| `run_summary.json` | `f093adc9e32a369e84b39786904f5094c0b0612f91a30a3075ca3c3cd8f6ab9a` | `f093adc9e32a369e84b39786904f5094c0b0612f91a30a3075ca3c3cd8f6ab9a` (unchanged, no local path) |
+
+| File (under `docs/execution-evidence/2026-11-02-135a27d-refusal/`) | Captured SHA-256 | Committed SHA-256 |
+|---|---|---|
+| `xclip_video_classification_colab_135a27d_colab-cli-t4_refusal.ipynb` | `0176047e14f175f90027e9e3b3f06301d916cb810bb83dafde5b6f6944d99127` | `0176047e14f175f90027e9e3b3f06301d916cb810bb83dafde5b6f6944d99127` (unchanged, no local path) |
+| `exec.log` | `5a79a36d658d467eea17113ee828c321d0614e3fd42f6d93ddd06dfdbeaeec0f` | `2fe2dd1851479c0493fad44ef81b351acf5a56a6e41b089300f1d9c42192d717` (2 local-path replacements) |
+| `run_summary.json` | `d1a61ea4483be18ccdced6251b479b020d0d2ea798c955b8b8ed1b1d040fd965` | `d1a61ea4483be18ccdced6251b479b020d0d2ea798c955b8b8ed1b1d040fd965` (unchanged, no local path) |
+| `run_copy.ipynb` | `b9f3d1ee1a707663992a4f09af175e85ee692a1e882755e211b8f6843b5c1ddf` | `b9f3d1ee1a707663992a4f09af175e85ee692a1e882755e211b8f6843b5c1ddf` (unchanged, no local path) |
+
+Not exercised by these runs: an accepted BYOD input and the interactive browser journeys (forms, uploads); every other open gate under Current status is unchanged.
+
+
+### Hosted Colab T4 runs of blob `229034e6` (2026-10-30; history, REL14)
 
 These runs executed the PR head `886fe30e887e08c0ae113410c1e45956b631f8fe`, notebook `tutorials/xclip_video_classification_colab.ipynb` blob `229034e6a0a10274aa7fab1d3380a1fef46646d2`, fetched at the 40-character SHA and Git-blob verified, with the Colab CLI (`colab exec -f`) on a fresh Colab Tesla T4 session (not a browser `Run all`). Each `run_summary.json` records `verdict` `PASS`, `exec_exit_code` 0, `input_unchanged` true and `stop_verified` true (the VM was released), and the SHA-256 of each executed notebook equals the summary's `executed_sha256`.
 
@@ -388,7 +431,7 @@ Not exercised by these runs: an accepted BYOD input (REL12), a browser `Run all`
 
 ## Current status
 
-**Candidate** (2026-10-27, DAT20 refusal display). The current blob `229034e6` (code commit `0cf055b`) shows a refused BYOD input as one `Refused: <file>: <reason>` line with no traceback, removes the earlier run's results from the session (earlier exports were already moved to `outputs/previous_run_<n>/`), and stops Run all at that cell, while genuine failures keep their traceback (NOTEBOOK_SPEC DAT19/DAT20); its default path (2026-10-30; 14 code cells, exit 0, 0 errors) and its scripted DAT20 refusal (2026-10-30; `USE_BYOD=True;BYOD_PATH=/content/sample_data`: exactly one `Refused:` line at cell `xclip_video_classification-18`, no traceback, earlier cells clean, VM released) both passed on a hosted Colab Tesla T4 (Colab CLI `colab exec -f`, not a browser `Run all`), and the hosted runs of earlier blobs, including the fresh-test evaluation of record of `0c9b1f0f`, are history for it (REL14). The status below is history.
+**Candidate** (2026-11-03, REL14 runs of the current blob). The current blob `6b08e748` (main `135a27d`: the Section 4 BYOD catches narrowed to input errors only, PR #12, and the lock-file upgrades of PRs #11 and #13) passed on a hosted Colab Tesla T4 on 2026-11-03: its default path (14/14 code cells, one pass, no restart, 0 errors) and its scripted DAT20 refusal (`USE_BYOD=True;BYOD_PATH=/content/sample_data`: exactly one `Refused:` line at cell `xclip_video_classification-18`, no traceback, earlier cells clean, VM released), Colab CLI sequential execution, not a browser `Run all` (REL14 for this blob). Still open for this blob: REL12 (the BYOD journeys; only the scripted DAT20 refusal has run, not an accepted BYOD input), REL2 (a browser `Run all`), the `SPLIT_SEED` re-run and the optional Section 10 experiment; the last three have no hosted run. Blob `229034e6` (code commit `0cf055b`), the current blob on 2026-10-30, shows a refused BYOD input as one `Refused: <file>: <reason>` line with no traceback, removes the earlier run's results from the session (earlier exports were already moved to `outputs/previous_run_<n>/`), and stops Run all at that cell, while genuine failures keep their traceback (NOTEBOOK_SPEC DAT19/DAT20); its default path (2026-10-30; 14 code cells, exit 0, 0 errors) and its scripted DAT20 refusal (2026-10-30; `USE_BYOD=True;BYOD_PATH=/content/sample_data`: exactly one `Refused:` line at cell `xclip_video_classification-18`, no traceback, earlier cells clean, VM released) both passed on a hosted Colab Tesla T4 (Colab CLI `colab exec -f`, not a browser `Run all`), and the hosted runs of earlier blobs, including the fresh-test evaluation of record of `0c9b1f0f`, are history (REL14), and so are the runs of `229034e6`. The status below is history.
 
 **Candidate** (2026-10-18). **Fresh-test evaluation of record (2026-10-18):** commit `1bf9b91` / blob `0c9b1f0f` ran in one pass on a fresh Colab Tesla T4 (Colab CLI 0.7.4, 14/14 code cells, 0 errors, 390.5 s); on the 669-clip fresh test the selected adapted head (lr 1e-5) scored top-1 0.895 against the frozen model's 0.786, difference +0.109, film-bootstrap 95% interval [0.066, 0.151]: **adapted helps**; evidence `docs/execution-evidence/2026-10-18-1bf9b91/`. **Reproduction 1 (2026-10-18):** commit `2889f8b` / blob `6de8deae`, a new Colab Tesla T4 runtime (14/14, 0 errors, 382.9 s), labelled "reproduction", matched the record in every field (`matches_record` True); evidence `docs/execution-evidence/2026-10-18-2889f8b/`. Earlier: **Colab T4 one-pass run of the isolated-environment revision (2026-10-09).** Commit `adcb4e8` / blob `41caa483bb88` (generator `build_notebook.py/2.2`, `notebook_spec` 2.2, hash-locked isolated uv environment, worker `google.colab` stubs with a `ModuleSpec`) executed in one pass with no restart and 0 errors on a fresh Colab Tesla T4 (Colab CLI 0.7.4 sequential execution, not a browser `Run all`; 13/13 code cells, 182.3 s wall, `cuda:0`); evidence in `docs/execution-evidence/2026-10-09-adcb4e8/`. The status stays Candidate (REL14): the BYOD journeys (REL12), the `SPLIT_SEED` re-run and the optional Section 10 experiment were not hosted-run. The 2026-09-21 Kaggle T4 run of blob `1e9956b7` (11/11 ok, one restart after the install cell; the blob is on `main` via `79e91a2`) is history.
 
